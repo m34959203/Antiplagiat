@@ -1,9 +1,8 @@
 import type { Metadata } from 'next'
-import './globals.css'
 
 export const metadata: Metadata = {
-  title: 'Antiplagiat - Проверка текста на уникальность',
-  description: 'AI-powered проверка текстов на плагиат. Быстро, точно, бесплатно. Поддержка русского и английского языков.',
+  title: 'Antiplagiat - Проверка текста на уникальность за 30 секунд',
+  description: 'AI-powered проверка на плагиат. Точность 94%. Быстро, просто, бесплатно.',
 }
 
 export default function RootLayout({
@@ -13,7 +12,13 @@ export default function RootLayout({
 }) {
   return (
     <html lang="ru">
-      <body>{children}</body>
+      <body style={{
+        margin: 0,
+        padding: 0,
+        fontFamily: '-apple-system, BlinkMacSystemFont, "Segoe UI", Roboto, "Helvetica Neue", Arial, sans-serif'
+      }}>
+        {children}
+      </body>
     </html>
   )
 }
