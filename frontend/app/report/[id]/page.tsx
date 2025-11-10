@@ -10,6 +10,7 @@ export default function ReportPage() {
   const [result, setResult] = useState<CheckResult | null>(null)
   const [loading, setLoading] = useState(true)
   const [error, setError] = useState<string | null>(null)
+  const [copied, setCopied] = useState(false)
 
   useEffect(() => {
     const fetchResult = async () => {
@@ -24,6 +25,13 @@ export default function ReportPage() {
     }
     fetchResult()
   }, [params.id])
+
+  const shareLink = () => {
+    const url = window.location.href
+    navigator.clipboard.writeText(url)
+    setCopied(true)
+    setTimeout(() => setCopied(false), 2000)
+  }
 
   if (loading) {
     return (
@@ -41,23 +49,11 @@ export default function ReportPage() {
       <div style={{ minHeight: '100vh', display: 'flex', alignItems: 'center', justifyContent: 'center' }}>
         <div style={{ textAlign: 'center' }}>
           <div style={{ fontSize: '4rem', marginBottom: '1rem' }}>❌</div>
-          <div style={{ fontSize: '1.5rem', color: '#e53e3e', marginBottom: '1rem' }}>
-            {error || 'Отчет не найден'}
-          </div>
-          <button
-            onClick={() => router.push('/')}
-            style={{
-              padding: '0.75rem 1.5rem',
-              background: '#3182ce',
-              color: 'white',
-              border: 'none',
-              borderRadius: '8px',
-              cursor: 'pointer',
-              fontSize: '1rem'
-            }}
-          >
-            Вернуться на главную
-          </button>
+          <div style={{ fontSize: '1.5rem', color: '#e53e3e', marginBottom: '1rem' }}>{error || 'Отчет не найден'}</div>
+          <button onClick={() => router.push('/')} style={{
+            padding: '0.75rem 1.5rem', background: '#3182ce', color: 'white',
+            border: 'none', borderRadius: '8px', cursor: 'pointer', fontSize: '1rem'
+          }}>Вернуться на главную</button>
         </div>
       </div>
     )
@@ -69,11 +65,28 @@ export default function ReportPage() {
 
   return (
     <div style={{ minHeight: '100vh', background: 'linear-gradient(to bottom, #ffffff, #f7fafc)' }}>
+      {/* Toast Notification */}
+      {copied && (
+        <div style={{
+          position: 'fixed', top: '2rem', right: '2rem', zIndex: 1000,
+          background: '#48bb78', color: 'white', padding: '1rem 1.5rem',
+          borderRadius: '8px', boxShadow: '0 10px 40px rgba(0,0,0,0.2)',
+          animation: 'slideIn 0.3s ease-out'
+        }}>
+          ✓ Ссылка скопирована!
+        </div>
+      )}
+
+      <style jsx>{`
+        @keyframes slideIn {
+          from { transform: translateX(100%); opacity: 0; }
+          to { transform: translateX(0); opacity: 1; }
+        }
+      `}</style>
+
       <header style={{
-        background: 'rgba(255, 255, 255, 0.95)',
-        backdropFilter: 'blur(10px)',
-        borderBottom: '1px solid #e2e8f0',
-        padding: '1rem 2rem'
+        background: 'rgba(255, 255, 255, 0.95)', backdropFilter: 'blur(10px)',
+        borderBottom: '1px solid #e2e8f0', padding: '1rem 2rem'
       }}>
         <div style={{ maxWidth: '1200px', margin: '0 auto', display: 'flex', alignItems: 'center', gap: '1rem' }}>
           <button onClick={() => router.push('/')} style={{
@@ -85,7 +98,9 @@ export default function ReportPage() {
             <span style={{ fontSize: '1.25rem', fontWeight: 'bold' }}>Antiplagiat</span>
           </div>
         </div>
-      </header>      <div style={{ maxWidth: '1200px', margin: '0 auto', padding: '3rem 2rem' }}>
+      </header>
+
+      <div style={{ maxWidth: '1200px', margin: '0 auto', padding: '3rem 2rem' }}>
         <div style={{
           background: 'white', borderRadius: '16px', padding: '3rem',
           boxShadow: '0 20px 60px rgba(0, 0, 0, 0.1)', marginBottom: '2rem'
@@ -194,12 +209,19 @@ export default function ReportPage() {
           )}
         </div>
 
-        <div style={{ display: 'flex', gap: '1rem', justifyContent: 'center' }}>
+        <div style={{ display: 'flex', gap: '1rem', justifyContent: 'center', flexWrap: 'wrap' }}>
           <button onClick={() => router.push('/')} style={{
             padding: '1rem 2rem', background: '#3182ce', color: 'white',
             border: 'none', borderRadius: '8px', fontSize: '1rem',
             fontWeight: '600', cursor: 'pointer'
           }}>Проверить другой текст</button>
+          
+          <button onClick={shareLink} style={{
+            padding: '1rem 2rem', background: '#48bb78', color: 'white',
+            border: 'none', borderRadius: '8px', fontSize: '1rem',
+            fontWeight: '600', cursor: 'pointer'
+          }}>🔗 Поделиться ссылкой</button>
+          
           <button onClick={() => window.print()} style={{
             padding: '1rem 2rem', background: 'white', color: '#3182ce',
             border: '2px solid #3182ce', borderRadius: '8px', fontSize: '1rem',
