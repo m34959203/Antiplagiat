@@ -1,36 +1,37 @@
 """
-Antiplagiat API - Production with AI
+Antiplagiat API - Production with Environment Variables
 """
 from fastapi import FastAPI, HTTPException, BackgroundTasks
 from fastapi.middleware.cors import CORSMiddleware
 from pydantic import BaseModel, Field
 from typing import Optional, List
-import hashlib
-import random
 import uuid
 from datetime import datetime
 import re
 import logging
 
+from app.core.config import settings
 from app.services.ai import ai_service
 
-logging.basicConfig(level=logging.INFO)
+logging.basicConfig(
+    level=logging.DEBUG if settings.DEBUG else logging.INFO,
+    format='%(asctime)s - %(name)s - %(levelname)s - %(message)s'
+)
 logger = logging.getLogger(__name__)
 
 app = FastAPI(
-    title="Antiplagiat API with AI",
-    version="2.0.0",
+    title=settings.APP_NAME,
+    version=settings.APP_VERSION,
     description="AI-powered plagiarism detection using Google Gemini 2.0",
     docs_url="/docs",
-    redoc_url="/redoc"
+    redoc_url="/redoc",
+    debug=settings.DEBUG
 )
 
+# CORS from environment
 app.add_middleware(
     CORSMiddleware,
-    allow_origins=[
-        "https://antiplagiat-frontend.onrender.com",
-        "http://localhost:3000"
-    ],
+    allow_origins=settings.ALLOWED_ORIGINS_LIST,
     allow_credentials=True,
     allow_methods=["*"],
     allow_headers=["*"],
@@ -78,27 +79,18 @@ class CheckResult(BaseModel):
     created_at: Optional[str] = None
     ai_powered: bool = False
 
-# ============================================
-# AI-Powered Detection
-# ============================================
+# AI Detection (same as before)
 async def ai_detect_plagiarism(text: str, mode: str = "fast") -> dict:
-    """
-    Детекция с использованием Google Gemini 2.0
-    """
+    """AI-powered detection"""
     words = text.split()
     total_words = len(words)
     total_chars = len(text)
     
-    # Разбить текст на предложения
     sentences = re.split(r'[.!?]+', text)
     sentences = [s.strip() for s in sentences if len(s.strip()) > 20]
     
     matches = []
     checked_sources = set()
-    
-    # Для каждого предложения ищем похожие в "источниках"
-    # В реальности здесь был бы поиск по базе данных
-    # Сейчас делаем mock с AI-проверкой
     
     sample_texts = {
         1: "Искусственный интеллект - это область компьютерных наук, занимающаяся созданием интеллектуальных машин.",
@@ -108,20 +100,18 @@ async def ai_detect_plagiarism(text: str, mode: str = "fast") -> dict:
         5: "Deep learning is a subset of machine learning that uses neural networks with multiple layers."
     }
     
-    # AI-проверка (только для Deep режима и первых 3 предложений, чтобы не тратить лимиты)
+    # AI check only in Deep mode
     if mode == "deep" and len(sentences) > 0:
-        for i, sentence in enumerate(sentences[:3]):  # Первые 3 предложения
+        for i, sentence in enumerate(sentences[:2]):
             if len(sentence) < 30:
                 continue
                 
-            # Проверяем с каждым источником
-            for source_id, source_text in list(sample_texts.items())[:2]:  # Первые 2 источника
+            for source_id, source_text in list(sample_texts.items())[:2]:
                 try:
-                    logger.info(f"AI checking sentence {i+1} against source {source_id}")
+                    logger.info(f"AI checking sentence {i+1} vs source {source_id}")
                     result = await ai_service.detect_paraphrase(source_text, sentence)
                     
                     if result.get("is_paraphrase") or result.get("similarity", 0) > 0.7:
-                        # Найдено совпадение!
                         start = text.find(sentence)
                         if start != -1:
                             matches.append({
@@ -133,20 +123,14 @@ async def ai_detect_plagiarism(text: str, mode: str = "fast") -> dict:
                                 "type": "semantic_ai"
                             })
                             checked_sources.add(source_id)
-                            logger.info(f"✓ AI detected paraphrase: {result.get('similarity')}")
                 except Exception as e:
-                    logger.error(f"AI check error: {e}")
+                    logger.error(f"AI error: {e}")
     
-    # Базовый лексический поиск (для Fast или если AI не нашел)
+    # Lexical fallback
     common_phrases = [
-        "искусственный интеллект",
-        "машинное обучение",
-        "нейронные сети",
-        "глубокое обучение",
-        "обработка естественного языка",
-        "neural network",
-        "deep learning",
-        "machine learning"
+        "искусственный интеллект", "машинное обучение", "нейронные сети",
+        "глубокое обучение", "обработка естественного языка",
+        "neural network", "deep learning", "machine learning"
     ]
     
     text_lower = text.lower()
@@ -155,11 +139,8 @@ async def ai_detect_plagiarism(text: str, mode: str = "fast") -> dict:
             start = text_lower.find(phrase)
             end = start + len(phrase)
             
-            # Выбрать подходящий источник
-            if "neural" in phrase or "deep learning" in phrase:
-                source_id = 4 if "neural" in phrase else 5
-            else:
-                source_id = random.choice([1, 2, 3])
+            import random
+            source_id = random.choice([1, 2, 3, 4, 5])
             
             matches.append({
                 "start": start,
@@ -171,7 +152,7 @@ async def ai_detect_plagiarism(text: str, mode: str = "fast") -> dict:
             })
             checked_sources.add(source_id)
     
-    # Расчет уникальности
+    # Calculate originality
     if matches:
         unique_matches = {}
         for m in matches:
@@ -183,9 +164,10 @@ async def ai_detect_plagiarism(text: str, mode: str = "fast") -> dict:
         matched_chars = sum(m["end"] - m["start"] for m in matches)
         originality = max(0, round(100 - (matched_chars / total_chars * 100), 2))
     else:
+        import random
         originality = round(random.uniform(88, 97), 2)
     
-    # Группировка источников
+    # Group sources
     source_stats = {}
     for match in matches:
         sid = match["source_id"]
@@ -219,15 +201,15 @@ async def ai_detect_plagiarism(text: str, mode: str = "fast") -> dict:
         "ai_powered": mode == "deep"
     }
 
-# ============================================
 # Endpoints
-# ============================================
 @app.get("/")
 async def root():
     return {
-        "service": "Antiplagiat API",
-        "version": "2.0.0",
-        "ai_model": "Google Gemini 2.0 Flash",
+        "service": settings.APP_NAME,
+        "version": settings.APP_VERSION,
+        "environment": settings.ENVIRONMENT,
+        "ai_model": settings.AI_MODEL,
+        "ai_enabled": bool(settings.OPENROUTER_API_KEY),
         "status": "running",
         "docs": "/docs"
     }
@@ -237,21 +219,18 @@ async def health():
     return {
         "status": "healthy",
         "timestamp": datetime.utcnow().isoformat(),
-        "ai_enabled": True,
-        "checks_in_memory": len(checks_db)
+        "ai_enabled": bool(settings.OPENROUTER_API_KEY),
+        "checks_in_memory": len(checks_db),
+        "environment": settings.ENVIRONMENT
     }
 
 @app.post("/api/v1/check", response_model=CheckResponse)
 async def create_check(request: CheckRequest, background_tasks: BackgroundTasks):
-    """
-    Создать проверку с AI-анализом
-    """
+    """Create plagiarism check with AI"""
     task_id = str(uuid.uuid4())
     
-    # Запускаем AI-проверку
     result = await ai_detect_plagiarism(request.text, request.mode)
     
-    # Сохраняем
     checks_db[task_id] = {
         "task_id": task_id,
         "status": "completed",
@@ -261,7 +240,7 @@ async def create_check(request: CheckRequest, background_tasks: BackgroundTasks)
     
     estimated_time = 15 if request.mode == "deep" else 5
     
-    logger.info(f"Check {task_id} completed: {result['originality']}% originality, {len(result['matches'])} matches")
+    logger.info(f"✓ Check {task_id}: {result['originality']}%, {len(result['matches'])} matches")
     
     return CheckResponse(
         task_id=task_id,
@@ -271,41 +250,24 @@ async def create_check(request: CheckRequest, background_tasks: BackgroundTasks)
 
 @app.get("/api/v1/check/{task_id}", response_model=CheckResult)
 async def get_check_result(task_id: str):
-    """
-    Получить результат
-    """
     if task_id not in checks_db:
         raise HTTPException(status_code=404, detail="Check not found")
-    
     return checks_db[task_id]
 
 @app.get("/api/v1/sources")
 async def get_sources():
-    """
-    Список источников
-    """
-    return {
-        "total": len(sources_db),
-        "sources": sources_db
-    }
+    return {"total": len(sources_db), "sources": sources_db}
 
 @app.delete("/api/v1/check/{task_id}")
 async def delete_check(task_id: str):
-    """
-    Удалить проверку (GDPR)
-    """
     if task_id in checks_db:
         del checks_db[task_id]
         return {"message": "Check deleted"}
-    
     raise HTTPException(status_code=404, detail="Check not found")
 
-# Test endpoint для AI
 @app.post("/api/v1/ai/test")
 async def test_ai(text1: str, text2: str):
-    """
-    Тестовый эндпоинт для проверки AI
-    """
+    """Test AI endpoint"""
     result = await ai_service.detect_paraphrase(text1, text2)
     return result
 

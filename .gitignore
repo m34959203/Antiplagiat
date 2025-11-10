@@ -1,23 +1,41 @@
-﻿# Python
+# Python
 __pycache__/
 *.py[cod]
+*.so
+.Python
 .venv/
 venv/
+ENV/
 *.egg-info/
-.env
-.env.local
 
 # Node
 node_modules/
 .next/
 out/
 npm-debug.log*
-.DS_Store
+
+# Environment variables
+.env
+.env.local
+.env.production
+!.env.example
+
+# Secrets
+*.pem
+*.key
+secrets/
 
 # IDE
 .vscode/
 .idea/
 *.swp
+
+# OS
+.DS_Store
+Thumbs.db
+
+# Docker
+*.log
 
 # Build
 dist/
