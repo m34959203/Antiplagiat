@@ -18,7 +18,16 @@ export interface Match {
   text: string
   source_id: number
   similarity: number
-  type: 'lexical' | 'semantic'
+  type: 'lexical' | 'semantic_ai'
+}
+
+export interface Source {
+  id: number
+  title: string
+  url: string
+  domain: string
+  match_count: number
+  avg_similarity: number
 }
 
 export interface CheckResult {
@@ -28,8 +37,9 @@ export interface CheckResult {
   total_words?: number
   total_chars?: number
   matches?: Match[]
-  sources?: any[]
+  sources?: Source[]
   created_at?: string
+  ai_powered?: boolean
 }
 
 export class ApiClient {
@@ -39,7 +49,7 @@ export class ApiClient {
     this.baseUrl = baseUrl
   }
 
-  async createCheck(request: CheckRequest): Promise<{ task_id: string }> {
+  async createCheck(request: CheckRequest): Promise<{ task_id: string; status: string; estimated_time_seconds: number }> {
     const response = await fetch(`${this.baseUrl}/api/v1/check`, {
       method: 'POST',
       headers: {
