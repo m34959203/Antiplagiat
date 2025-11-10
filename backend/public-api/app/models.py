@@ -1,11 +1,11 @@
 """
-Database Models
+Database Models with SQLite fallback
 """
 from sqlalchemy import Column, String, Float, Integer, Text, DateTime, JSON, create_engine
 from sqlalchemy.ext.declarative import declarative_base
 from sqlalchemy.orm import sessionmaker
 from datetime import datetime
-from app.core.config import settings
+import os
 
 Base = declarative_base()
 
@@ -24,14 +24,40 @@ class CheckResult(Base):
     created_at = Column(DateTime, default=datetime.utcnow)
     user_id = Column(String, nullable=True, index=True)
 
-# Database connection
-engine = create_engine(
-    settings.DATABASE_URL,
-    pool_pre_ping=True,
-    pool_size=10,
-    max_overflow=20,
-    echo=settings.DEBUG
-)
+# Use SQLite for now (PostgreSQL connection issues)
+DATABASE_URL = os.getenv("DATABASE_URL", "sqlite:///./antiplagiat.db")
+
+# Force SQLite if PostgreSQL URL is problematic
+if "dpg-d48gfj3e5dus73c6qqp0-a" in DATABASE_URL:
+    print("⚠️  Detected problematic PostgreSQL URL, using SQLite instead")
+    DATABASE_URL = "sqlite:///./antiplagiat.db"
+
+print(f"📊 Using database: {'SQLite' if 'sqlite' in DATABASE_URL else 'PostgreSQL'}")
+
+try:
+    if "sqlite" in DATABASE_URL:
+        engine = create_engine(
+            DATABASE_URL,
+            connect_args={"check_same_thread": False},
+            echo=False
+        )
+    else:
+        engine = create_engine(
+            DATABASE_URL,
+            pool_pre_ping=True,
+            pool_size=10,
+            max_overflow=20,
+            echo=False
+        )
+    print("✓ Database engine created successfully")
+except Exception as e:
+    print(f"❌ Database error: {e}")
+    print("⚠️  Falling back to SQLite")
+    DATABASE_URL = "sqlite:///./antiplagiat.db"
+    engine = create_engine(
+        DATABASE_URL,
+        connect_args={"check_same_thread": False}
+    )
 
 SessionLocal = sessionmaker(autocommit=False, autoflush=False, bind=engine)
 
@@ -45,5 +71,8 @@ def get_db():
 
 def init_db():
     """Инициализация БД"""
-    Base.metadata.create_all(bind=engine)
-    print("✓ Database tables created")
+    try:
+        Base.metadata.create_all(bind=engine)
+        print("✓ Database tables created")
+    except Exception as e:
+        print(f"❌ Error creating tables: {e}")
