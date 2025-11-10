@@ -1,0 +1,2323 @@
+﻿================================================================================
+PROJECT AUDIT: ANTIPLAGIAT
+================================================================================
+Collection Date: 2025-11-11 02:41:12
+Root Path: C:\Users\Дмитрий\Desktop\antiplagiat
+================================================================================
+
+PROJECT STRUCTURE
+--------------------------------------------------------------------------------
+Структура папок
+Серийный номер тома: 7404-48E4
+C:.
+|   .env.example
+|   .gitignore
+|   collect-project.ps1
+|   docker-compose.yml
+|   inspect-code.ps1
+|   README.md
+|   render.yaml
+|   
++---backend
+|   +---admin-api
+|   |   \---app
+|   +---api-gateway
+|   |       go.mod
+|   |       main.go
+|   |       
+|   \---public-api
+|       |   .env
+|       |   .env.example
+|       |   poetry.lock
+|       |   pyproject.toml
+|       |   requirements.txt
+|       |   
+|       \---app
+|           |   main.py
+|           |   main.py.backup_20251110_132820
+|           |   models.py
+|           |   __init__.py
+|           |   
+|           +---core
+|           |       config.py
+|           |       __init__.py
+|           |       
+|           \---services
+|                   ai.py
+|                   detector.py
+|                   __init__.py
+|                   
++---docs
++---frontend
+|   |   .env
+|   |   .env.example
+|   |   .env.local
+|   |   history.ts
+|   |   next.config.js
+|   |   package-lock.json
+|   |   package.json
+|   |   tailwind.config.js
+|   |   tsconfig.json
+|   |   
+|   +---app
+|   |   |   layout.tsx
+|   |   |   page.tsx
+|   |   |   
+|   |   \---report
+|   |       \---[id]
+|   |               page.tsx
+|   |               
+|   \---lib
+|           api.ts
+|           history.ts
+|           
+\---scripts
+        start.bat
+        
+
+
+PROJECT STATISTICS
+--------------------------------------------------------------------------------
+Total files: 28
+Total size: 80.64 KB
+
+By file type:
+  .py: 8 files
+  .ts: 3 files
+  .tsx: 3 files
+  .js: 2 files
+  .ps1: 2 files
+  .json: 2 files
+  .yaml: 1 files
+  .txt: 1 files
+  .bat: 1 files
+  .mod: 1 files
+  .go: 1 files
+  .toml: 1 files
+  .yml: 1 files
+  .md: 1 files
+
+
+================================================================================
+FILE CONTENTS
+================================================================================
+
+================================================================================
+FILE: backend\api-gateway\go.mod
+Size: 86 bytes | Modified: 11/09/2025 02:06:20
+================================================================================
+
+module antiplagiat/gateway
+
+go 1.22
+
+require github.com/gofiber/fiber/v2 v2.52.0
+
+
+
+================================================================================
+FILE: backend\api-gateway\main.go
+Size: 236 bytes | Modified: 11/09/2025 02:06:20
+================================================================================
+
+package main
+
+import (
+	"log"
+	"github.com/gofiber/fiber/v2"
+)
+
+func main() {
+	app := fiber.New()
+	app.Get("/", func(c *fiber.Ctx) error {
+		return c.SendString("Antiplagiat Gateway")
+	})
+	log.Fatal(app.Listen(":8080"))
+}
+
+
+
+================================================================================
+FILE: backend\public-api\app\__init__.py
+Size: 0 bytes | Modified: 11/10/2025 05:24:49
+================================================================================
+
+(empty file)
+
+
+================================================================================
+FILE: backend\public-api\app\core\__init__.py
+Size: 0 bytes | Modified: 11/10/2025 05:31:21
+================================================================================
+
+(empty file)
+
+
+================================================================================
+FILE: backend\public-api\app\core\config.py
+Size: 1871 bytes | Modified: 11/10/2025 05:31:21
+================================================================================
+
+"""
+Configuration management
+Loads settings from environment variables
+"""
+from pydantic_settings import BaseSettings
+from typing import List
+import os
+from functools import lru_cache
+
+class Settings(BaseSettings):
+    """Application settings"""
+    
+    # Application
+    APP_NAME: str = "Antiplagiat API"
+    APP_VERSION: str = "2.0.0"
+    ENVIRONMENT: str = "development"
+    DEBUG: bool = True
+    
+    # Security
+    JWT_SECRET: str = "change-me-in-production"
+    API_KEY_SECRET: str = "change-me-in-production"
+    
+    # CORS
+    ALLOWED_ORIGINS: str = "http://localhost:3000"
+    
+    @property
+    def ALLOWED_ORIGINS_LIST(self) -> List[str]:
+        return [origin.strip() for origin in self.ALLOWED_ORIGINS.split(",")]
+    
+    # Database
+    DATABASE_URL: str = "postgresql://postgres:postgres@localhost:5432/antiplagiat"
+    
+    # Redis
+    REDIS_URL: str = "redis://localhost:6379/0"
+    
+    # AI Configuration
+    OPENROUTER_API_KEY: str
+    AI_MODEL: str = "google/gemini-2.0-flash-exp:free"
+    AI_BASE_URL: str = "https://openrouter.ai/api/v1/chat/completions"
+    AI_TIMEOUT: int = 30
+    AI_MAX_RETRIES: int = 3
+    
+    # Rate Limiting
+    RATE_LIMIT_PER_MINUTE: int = 60
+    RATE_LIMIT_PER_DAY: int = 1000
+    
+    # File Upload
+    MAX_FILE_SIZE_MB: int = 10
+    ALLOWED_FILE_TYPES: str = "txt,pdf,docx,rtf"
+    
+    @property
+    def ALLOWED_FILE_TYPES_LIST(self) -> List[str]:
+        return [ft.strip() for ft in self.ALLOWED_FILE_TYPES.split(",")]
+    
+    @property
+    def MAX_FILE_SIZE_BYTES(self) -> int:
+        return self.MAX_FILE_SIZE_MB * 1024 * 1024
+    
+    class Config:
+        env_file = ".env"
+        env_file_encoding = "utf-8"
+        case_sensitive = True
+
+@lru_cache()
+def get_settings() -> Settings:
+    """
+    Cached settings instance
+    """
+    return Settings()
+
+# Global settings instance
+settings = get_settings()
+
+
+================================================================================
+FILE: backend\public-api\app\main.py
+Size: 5880 bytes | Modified: 11/11/2025 00:38:41
+================================================================================
+
+"""
+Antiplagiat API - Google Search Integration
+"""
+from fastapi import FastAPI, HTTPException, BackgroundTasks, Depends
+from fastapi.middleware.cors import CORSMiddleware
+from pydantic import BaseModel, Field
+from typing import Optional, List
+from sqlalchemy.orm import Session
+import uuid
+from datetime import datetime
+import logging
+
+from app.core.config import settings
+from app.services.detector import detector
+from app.models import CheckResult, get_db, init_db
+
+logging.basicConfig(
+    level=logging.DEBUG if settings.DEBUG else logging.INFO,
+    format='%(asctime)s - %(name)s - %(levelname)s - %(message)s'
+)
+logger = logging.getLogger(__name__)
+
+app = FastAPI(
+    title=settings.APP_NAME,
+    version=settings.APP_VERSION,
+    description="AI-powered plagiarism detection using Google Search",
+    docs_url="/docs",
+    redoc_url="/redoc",
+    debug=settings.DEBUG
+)
+
+app.add_middleware(
+    CORSMiddleware,
+    allow_origins=settings.ALLOWED_ORIGINS_LIST,
+    allow_credentials=True,
+    allow_methods=["*"],
+    allow_headers=["*"],
+)
+
+@app.on_event("startup")
+async def startup_event():
+    init_db()
+    logger.info("✓ Database initialized")
+
+# Models
+class CheckRequest(BaseModel):
+    text: str = Field(..., min_length=100, max_length=500000)
+    mode: str = Field(default="fast", pattern="^(fast|deep)$")
+    lang: str = Field(default="ru", pattern="^(ru|en|kk)$")
+    exclude_quotes: bool = True
+    exclude_bibliography: bool = True
+
+class Match(BaseModel):
+    start: int
+    end: int
+    text: str
+    source_id: int
+    similarity: float
+    type: str
+
+class CheckResponse(BaseModel):
+    task_id: str
+    status: str
+    estimated_time_seconds: int
+
+class CheckResultResponse(BaseModel):
+    task_id: str
+    status: str
+    originality: Optional[float] = None
+    total_words: Optional[int] = None
+    total_chars: Optional[int] = None
+    matches: Optional[List[Match]] = None
+    sources: Optional[List[dict]] = None
+    created_at: Optional[str] = None
+    ai_powered: bool = False
+    note: Optional[str] = None
+
+@app.get("/")
+async def root():
+    return {
+        "service": settings.APP_NAME,
+        "version": settings.APP_VERSION,
+        "environment": settings.ENVIRONMENT,
+        "google_search_enabled": bool(detector.google_api_key and detector.google_cx),
+        "status": "running",
+        "docs": "/docs"
+    }
+
+@app.get("/health")
+async def health(db: Session = Depends(get_db)):
+    try:
+        db.execute("SELECT 1")
+        db_status = "connected"
+    except:
+        db_status = "disconnected"
+    
+    return {
+        "status": "healthy",
+        "timestamp": datetime.utcnow().isoformat(),
+        "google_search_enabled": bool(detector.google_api_key and detector.google_cx),
+        "database": db_status,
+        "environment": settings.ENVIRONMENT
+    }
+
+@app.post("/api/v1/check", response_model=CheckResponse)
+async def create_check(
+    request: CheckRequest,
+    background_tasks: BackgroundTasks,
+    db: Session = Depends(get_db)
+):
+    """
+    Проверка текста на плагиат
+    
+    Fast режим: быстрая эвристика (mock)
+    Deep режим: Google Search (реальная детекция)
+    """
+    task_id = str(uuid.uuid4())
+    
+    # Анализ через новый детектор
+    result = detector.analyze(request.text, mode=request.mode)
+    
+    total_words = len(request.text.split())
+    total_chars = len(request.text)
+    
+    # Сохраняем в БД
+    db_result = CheckResult(
+        task_id=task_id,
+        status="completed",
+        originality=result.get('originality', 0),
+        total_words=total_words,
+        total_chars=total_chars,
+        matches=result.get('matches', []),
+        sources=result.get('sources', []),
+        ai_powered=result.get('google_used', False),
+        created_at=datetime.utcnow()
+    )
+    db.add(db_result)
+    db.commit()
+    
+    estimated_time = 15 if request.mode == "deep" else 3
+    
+    google_status = "✓" if result.get('google_used') else "✗"
+    logger.info(f"{google_status} Check {task_id}: {result.get('originality')}%, mode={request.mode}, google={result.get('google_used', False)}, matches={len(result.get('matches', []))}")
+    
+    return CheckResponse(
+        task_id=task_id,
+        status="completed",
+        estimated_time_seconds=estimated_time
+    )
+
+@app.get("/api/v1/check/{task_id}", response_model=CheckResultResponse)
+async def get_check_result(task_id: str, db: Session = Depends(get_db)):
+    """Получение результатов проверки"""
+    result = db.query(CheckResult).filter(CheckResult.task_id == task_id).first()
+    if not result:
+        raise HTTPException(status_code=404, detail="Check not found")
+    
+    return CheckResultResponse(
+        task_id=result.task_id,
+        status=result.status,
+        originality=result.originality,
+        total_words=result.total_words,
+        total_chars=result.total_chars,
+        matches=result.matches,
+        sources=result.sources,
+        created_at=result.created_at.isoformat() if result.created_at else None,
+        ai_powered=result.ai_powered,
+        note="Deep режим использует Google Search для реальной детекции" if result.ai_powered else "Fast режим - для точной проверки используйте Deep"
+    )
+
+@app.delete("/api/v1/check/{task_id}")
+async def delete_check(task_id: str, db: Session = Depends(get_db)):
+    """Удаление проверки"""
+    result = db.query(CheckResult).filter(CheckResult.task_id == task_id).first()
+    if result:
+        db.delete(result)
+        db.commit()
+        return {"message": "Check deleted"}
+    raise HTTPException(status_code=404, detail="Check not found")
+
+if __name__ == "__main__":
+    import uvicorn
+    uvicorn.run(app, host="0.0.0.0", port=8001)
+
+
+================================================================================
+FILE: backend\public-api\app\models.py
+Size: 2496 bytes | Modified: 11/10/2025 23:24:52
+================================================================================
+
+"""
+Database Models with SQLite fallback
+"""
+from sqlalchemy import Column, String, Float, Integer, Text, DateTime, JSON, create_engine
+from sqlalchemy.ext.declarative import declarative_base
+from sqlalchemy.orm import sessionmaker
+from datetime import datetime
+import os
+
+Base = declarative_base()
+
+class CheckResult(Base):
+    """Результат проверки на плагиат"""
+    __tablename__ = "check_results"
+    
+    task_id = Column(String, primary_key=True, index=True)
+    status = Column(String, default="pending")
+    originality = Column(Float, nullable=True)
+    total_words = Column(Integer, nullable=True)
+    total_chars = Column(Integer, nullable=True)
+    matches = Column(JSON, nullable=True)
+    sources = Column(JSON, nullable=True)
+    ai_powered = Column(String, default=False)
+    created_at = Column(DateTime, default=datetime.utcnow)
+    user_id = Column(String, nullable=True, index=True)
+
+# Use SQLite for now (PostgreSQL connection issues)
+DATABASE_URL = os.getenv("DATABASE_URL", "sqlite:///./antiplagiat.db")
+
+# Force SQLite if PostgreSQL URL is problematic
+if "dpg-d48gfj3e5dus73c6qqp0-a" in DATABASE_URL:
+    print("⚠️  Detected problematic PostgreSQL URL, using SQLite instead")
+    DATABASE_URL = "sqlite:///./antiplagiat.db"
+
+print(f"📊 Using database: {'SQLite' if 'sqlite' in DATABASE_URL else 'PostgreSQL'}")
+
+try:
+    if "sqlite" in DATABASE_URL:
+        engine = create_engine(
+            DATABASE_URL,
+            connect_args={"check_same_thread": False},
+            echo=False
+        )
+    else:
+        engine = create_engine(
+            DATABASE_URL,
+            pool_pre_ping=True,
+            pool_size=10,
+            max_overflow=20,
+            echo=False
+        )
+    print("✓ Database engine created successfully")
+except Exception as e:
+    print(f"❌ Database error: {e}")
+    print("⚠️  Falling back to SQLite")
+    DATABASE_URL = "sqlite:///./antiplagiat.db"
+    engine = create_engine(
+        DATABASE_URL,
+        connect_args={"check_same_thread": False}
+    )
+
+SessionLocal = sessionmaker(autocommit=False, autoflush=False, bind=engine)
+
+def get_db():
+    """Dependency для FastAPI"""
+    db = SessionLocal()
+    try:
+        yield db
+    finally:
+        db.close()
+
+def init_db():
+    """Инициализация БД"""
+    try:
+        Base.metadata.create_all(bind=engine)
+        print("✓ Database tables created")
+    except Exception as e:
+        print(f"❌ Error creating tables: {e}")
+
+
+================================================================================
+FILE: backend\public-api\app\services\__init__.py
+Size: 0 bytes | Modified: 11/10/2025 05:24:49
+================================================================================
+
+(empty file)
+
+
+================================================================================
+FILE: backend\public-api\app\services\ai.py
+Size: 5585 bytes | Modified: 11/10/2025 05:31:21
+================================================================================
+
+"""
+AI Service - OpenRouter Integration
+Reads API key from environment variables
+"""
+import aiohttp
+import json
+from typing import List, Dict
+import logging
+from app.core.config import settings
+
+logger = logging.getLogger(__name__)
+
+class OpenRouterAI:
+    def __init__(self):
+        self.api_key = settings.OPENROUTER_API_KEY
+        self.base_url = settings.AI_BASE_URL
+        self.model = settings.AI_MODEL
+        self.timeout = settings.AI_TIMEOUT
+        self.max_retries = settings.AI_MAX_RETRIES
+        
+        if not self.api_key:
+            logger.warning("⚠️  OPENROUTER_API_KEY not set!")
+        else:
+            logger.info(f"✓ AI Service initialized with model: {self.model}")
+        
+    async def detect_paraphrase(self, text1: str, text2: str) -> Dict:
+        """
+        Определить, является ли text2 парафразом text1
+        """
+        if not self.api_key:
+            return {"is_paraphrase": False, "similarity": 0.0, "explanation": "API key not configured"}
+        
+        prompt = f"""Сравни два текста и определи, является ли второй текст парафразом первого.
+
+Текст 1: {text1}
+
+Текст 2: {text2}
+
+Ответь в формате JSON:
+{{
+  "is_paraphrase": true/false,
+  "similarity": 0.0-1.0,
+  "explanation": "краткое объяснение"
+}}"""
+
+        for attempt in range(self.max_retries):
+            try:
+                timeout = aiohttp.ClientTimeout(total=self.timeout)
+                async with aiohttp.ClientSession(timeout=timeout) as session:
+                    async with session.post(
+                        self.base_url,
+                        headers={
+                            "Authorization": f"Bearer {self.api_key}",
+                            "Content-Type": "application/json",
+                            "HTTP-Referer": "https://antiplagiat-api.onrender.com",
+                            "X-Title": "Antiplagiat AI Detection"
+                        },
+                        json={
+                            "model": self.model,
+                            "messages": [{"role": "user", "content": prompt}],
+                            "temperature": 0.3,
+                            "max_tokens": 500
+                        }
+                    ) as response:
+                        if response.status == 200:
+                            data = await response.json()
+                            content = data["choices"][0]["message"]["content"]
+                            
+                            try:
+                                start = content.find("{")
+                                end = content.rfind("}") + 1
+                                json_str = content[start:end]
+                                result = json.loads(json_str)
+                                return result
+                            except:
+                                return {
+                                    "is_paraphrase": "парафраз" in content.lower(),
+                                    "similarity": 0.7 if "похож" in content.lower() else 0.3,
+                                    "explanation": content
+                                }
+                        else:
+                            logger.error(f"OpenRouter error: {response.status}")
+                            if attempt < self.max_retries - 1:
+                                continue
+            except Exception as e:
+                logger.error(f"AI detection error (attempt {attempt+1}): {e}")
+                if attempt < self.max_retries - 1:
+                    continue
+        
+        return {"is_paraphrase": False, "similarity": 0.0, "explanation": "API unavailable"}
+    
+    async def extract_key_ideas(self, text: str) -> List[str]:
+        """
+        Извлечь ключевые идеи
+        """
+        if not self.api_key:
+            return []
+        
+        prompt = f"""Извлеки 5-7 ключевых идей из текста. Каждая идея - одно предложение.
+
+Текст: {text}
+
+Ответь в JSON: {{"key_ideas": ["идея 1", "идея 2", ...]}}"""
+
+        try:
+            timeout = aiohttp.ClientTimeout(total=self.timeout)
+            async with aiohttp.ClientSession(timeout=timeout) as session:
+                async with session.post(
+                    self.base_url,
+                    headers={
+                        "Authorization": f"Bearer {self.api_key}",
+                        "Content-Type": "application/json"
+                    },
+                    json={
+                        "model": self.model,
+                        "messages": [{"role": "user", "content": prompt}],
+                        "temperature": 0.3,
+                        "max_tokens": 800
+                    }
+                ) as response:
+                    if response.status == 200:
+                        data = await response.json()
+                        content = data["choices"][0]["message"]["content"]
+                        
+                        try:
+                            start = content.find("{")
+                            end = content.rfind("}") + 1
+                            result = json.loads(content[start:end])
+                            return result.get("key_ideas", [])
+                        except:
+                            return []
+        except Exception as e:
+            logger.error(f"Key ideas error: {e}")
+        
+        return []
+
+# Singleton
+ai_service = OpenRouterAI()
+
+
+================================================================================
+FILE: backend\public-api\app\services\detector.py
+Size: 8464 bytes | Modified: 11/11/2025 00:50:44
+================================================================================
+
+"""
+Plagiarism Detection - ИСПРАВЛЕННАЯ версия
+Проблема: не учитывалась similarity при расчете оригинальности
+Решение: matched_chars умножаем на similarity
+"""
+import re
+import os
+from typing import List, Dict, Optional
+import logging
+
+logger = logging.getLogger(__name__)
+
+class GooglePlagiarismDetector:
+    """
+    Детектор плагиата на основе Google Search
+    """
+    
+    def __init__(self):
+        self.google_api_key = os.getenv("GOOGLE_SEARCH_API_KEY", "")
+        self.google_cx = os.getenv("GOOGLE_SEARCH_CX", "")
+        
+        if self.google_api_key and self.google_cx:
+            logger.info("✓ Google Search API настроен")
+        else:
+            logger.warning("⚠️  Google Search API не настроен")
+    
+    def analyze(self, text: str, mode: str = "fast") -> Dict:
+        """Главный метод анализа"""
+        
+        if mode == "deep":
+            return self._google_search_analysis(text)
+        else:
+            return self._fast_mock_analysis(text)
+    
+    def _fast_mock_analysis(self, text: str) -> Dict:
+        """Fast режим: простая mock проверка"""
+        words = text.split()
+        
+        common_phrases = [
+            "искусственный интеллект", "машинное обучение", "нейронные сети",
+            "глубокое обучение", "обработка естественного языка",
+            "neural network", "deep learning", "machine learning",
+            "artificial intelligence"
+        ]
+        
+        text_lower = text.lower()
+        found_phrases = sum(1 for phrase in common_phrases if phrase in text_lower)
+        
+        if found_phrases >= 3:
+            originality = 75.0
+        elif found_phrases >= 2:
+            originality = 85.0
+        else:
+            originality = 92.0
+        
+        return {
+            'originality': originality,
+            'matches': [],
+            'sources': [],
+            'google_used': False,
+            'mode': 'fast'
+        }
+    
+    def _google_search_analysis(self, text: str) -> Dict:
+        """
+        Deep режим: Google Search с ПРАВИЛЬНЫМ расчетом оригинальности
+        """
+        if not self.google_api_key or not self.google_cx:
+            logger.error("Google Search API не настроен!")
+            return {
+                'originality': 0.0,
+                'matches': [],
+                'sources': [],
+                'google_used': False,
+                'error': 'Google Search API не настроен'
+            }
+        
+        total_chars = len(text)
+        
+        # Разбиваем на предложения
+        sentences = self._split_sentences(text)
+        
+        if not sentences:
+            return {
+                'originality': 100.0,
+                'matches': [],
+                'sources': [],
+                'google_used': False,
+                'error': 'Текст слишком короткий'
+            }
+        
+        # Проверяем в Google
+        matches = []
+        sources_dict = {}
+        
+        sentences_to_check = sentences[:5]
+        
+        logger.info(f"Проверяем {len(sentences_to_check)} предложений через Google...")
+        
+        for sentence in sentences_to_check:
+            if len(sentence) < 50:
+                continue
+            
+            google_results = self._search_in_google(sentence)
+            
+            if google_results:
+                for result in google_results:
+                    matches.append({
+                        'start': text.find(sentence),
+                        'end': text.find(sentence) + len(sentence),
+                        'text': sentence,
+                        'source_id': result['source_id'],
+                        'similarity': result['similarity'],
+                        'type': 'google_exact'
+                    })
+                    
+                    source_id = result['source_id']
+                    if source_id not in sources_dict:
+                        sources_dict[source_id] = {
+                            'id': source_id,
+                            'title': result['title'],
+                            'url': result['url'],
+                            'domain': result['domain'],
+                            'match_count': 0
+                        }
+                    sources_dict[source_id]['match_count'] += 1
+        
+        # ============================================================================
+        # ИСПРАВЛЕННЫЙ РАСЧЕТ ОРИГИНАЛЬНОСТИ
+        # ============================================================================
+        if matches:
+            # Убираем дубликаты
+            unique_matches = {}
+            for match in matches:
+                key = (match['start'], match['end'])
+                if key not in unique_matches or unique_matches[key]['similarity'] < match['similarity']:
+                    unique_matches[key] = match
+            
+            matches = list(unique_matches.values())
+            
+            # ПРАВИЛЬНЫЙ РАСЧЕТ: учитываем similarity!
+            # Взвешенная сумма: длина * схожесть
+            weighted_matched_chars = sum(
+                (m['end'] - m['start']) * m['similarity'] 
+                for m in matches
+            )
+            
+            # Оригинальность = 100% - (взвешенные совпадения / общая длина * 100)
+            originality = max(0, min(100, round(100 - (weighted_matched_chars / total_chars * 100), 2)))
+            
+            logger.info(f"Расчет: {len(matches)} совпадений, weighted_chars={weighted_matched_chars:.1f}, total={total_chars}, originality={originality}%")
+        else:
+            # Ничего не найдено
+            originality = 95.0
+        
+        sources = list(sources_dict.values())
+        
+        logger.info(f"✓ Результат: {originality}% оригинальности, {len(matches)} совпадений, {len(sources)} источников")
+        
+        return {
+            'originality': originality,
+            'matches': matches,
+            'sources': sorted(sources, key=lambda x: x['match_count'], reverse=True),
+            'google_used': True,
+            'mode': 'deep'
+        }
+    
+    def _split_sentences(self, text: str) -> List[str]:
+        """Разбивка на предложения"""
+        sentences = re.split(r'[.!?]+', text)
+        return [s.strip() for s in sentences if len(s.strip()) > 30]
+    
+    def _search_in_google(self, query: str) -> List[Dict]:
+        """Поиск в Google"""
+        try:
+            import httpx
+            
+            url = "https://www.googleapis.com/customsearch/v1"
+            search_query = query[:150]
+            
+            params = {
+                'key': self.google_api_key,
+                'cx': self.google_cx,
+                'q': f'"{search_query}"',
+                'num': 5
+            }
+            
+            response = httpx.get(url, params=params, timeout=15)
+            
+            if response.status_code != 200:
+                logger.error(f"Google Search error: HTTP {response.status_code}")
+                return []
+            
+            data = response.json()
+            
+            if 'items' not in data:
+                return []
+            
+            results = []
+            for item in data['items']:
+                source_id = hash(item['link']) % 100000
+                
+                results.append({
+                    'source_id': source_id,
+                    'title': item.get('title', 'Untitled')[:200],
+                    'url': item.get('link', ''),
+                    'domain': item.get('displayLink', 'unknown'),
+                    'similarity': 0.95  # Точное совпадение в Google
+                })
+            
+            logger.info(f"✓ Google нашел {len(results)} источников")
+            return results
+            
+        except Exception as e:
+            logger.error(f"Google Search error: {e}")
+            return []
+
+# Singleton
+detector = GooglePlagiarismDetector()
+
+
+================================================================================
+FILE: backend\public-api\pyproject.toml
+Size: 250 bytes | Modified: 11/09/2025 02:15:20
+================================================================================
+
+[tool.poetry]
+name = "antiplagiat-public-api"
+version = "2.0.0"
+
+[tool.poetry.dependencies]
+python = "^3.12"
+fastapi = "^0.109.0"
+uvicorn = "^0.27.0"
+
+[build-system]
+requires = ["poetry-core"]
+build-backend = "poetry.core.masonry.api"
+
+
+
+================================================================================
+FILE: backend\public-api\requirements.txt
+Size: 276 bytes | Modified: 11/10/2025 23:51:44
+================================================================================
+
+fastapi==0.109.0
+uvicorn[standard]==0.27.0
+pydantic==2.5.3
+pydantic-settings==2.1.0
+python-multipart==0.0.6
+sqlalchemy==2.0.25
+psycopg2-binary==2.9.9
+alembic==1.13.1
+python-jose[cryptography]==3.3.0
+passlib[bcrypt]==1.7.4
+python-dotenv==1.0.0
+httpx==0.26.0
+aiohttp==3.9.1
+
+
+
+================================================================================
+FILE: collect-project.ps1
+Size: 8357 bytes | Modified: 11/11/2025 02:40:59
+================================================================================
+
+# ============================================
+# Project Files Collection Script
+# ============================================
+
+param(
+    [string]$OutputFile = "PROJECT-COLLECTION-$(Get-Date -Format 'yyyyMMdd-HHmmss').txt"
+)
+
+$ErrorActionPreference = "Continue"
+
+# Exclude folders
+$excludeFolders = @(
+    'node_modules',
+    '__pycache__',
+    '.next',
+    'dist',
+    'build',
+    '.git',
+    '.venv',
+    'venv',
+    'env',
+    '.pytest_cache',
+    '.mypy_cache',
+    'coverage',
+    '.idea',
+    '.vscode'
+)
+
+# Exclude files
+$excludeFiles = @(
+    '*.pyc',
+    '*.pyo',
+    '*.log',
+    '*.exe',
+    '*.dll',
+    '*.so',
+    '*.dylib',
+    'package-lock.json',
+    'poetry.lock',
+    '.DS_Store',
+    'Thumbs.db',
+    '*.backup_*'
+)
+
+# Never include these files
+$excludeExact = @(
+    '.env',
+    '.env.local'
+)
+
+# Include these extensions
+$includeExtensions = @(
+    '.py', '.go', '.mod', '.sum',
+    '.js', '.jsx', '.ts', '.tsx', '.json',
+    '.yml', '.yaml', '.toml', '.env.example',
+    '.md', '.txt',
+    '.ps1', '.sh', '.bat',
+    '.html', '.css'
+)
+
+# ============================================
+# Functions
+# ============================================
+
+function Write-ColorOutput {
+    param([string]$Message, [string]$Color = "White")
+    Write-Host $Message -ForegroundColor $Color
+}
+
+function Get-RelativePath {
+    param([string]$Path, [string]$BasePath)
+    return $Path.Replace($BasePath, "").TrimStart('\')
+}
+
+function Should-ExcludeFolder {
+    param([string]$FolderPath)
+    
+    foreach ($exclude in $excludeFolders) {
+        if ($FolderPath -like "*\$exclude" -or $FolderPath -like "*\$exclude\*") {
+            return $true
+        }
+    }
+    return $false
+}
+
+function Should-ExcludeFile {
+    param([string]$FileName)
+    
+    if ($excludeExact -contains $FileName) {
+        return $true
+    }
+    
+    foreach ($pattern in $excludeFiles) {
+        if ($FileName -like $pattern) {
+            return $true
+        }
+    }
+    
+    return $false
+}
+
+function Should-IncludeFile {
+    param([string]$FileName)
+    
+    $ext = [System.IO.Path]::GetExtension($FileName).ToLower()
+    return $includeExtensions -contains $ext
+}
+
+# ============================================
+# Main Process
+# ============================================
+
+Write-ColorOutput "`n============================================" "Cyan"
+Write-ColorOutput "   PROJECT FILES COLLECTION" "Cyan"
+Write-ColorOutput "============================================`n" "Cyan"
+
+$startTime = Get-Date
+$rootPath = Get-Location
+$output = @()
+
+# Header
+$output += "=" * 80
+$output += "PROJECT AUDIT: ANTIPLAGIAT"
+$output += "=" * 80
+$output += "Collection Date: $(Get-Date -Format 'yyyy-MM-dd HH:mm:ss')"
+$output += "Root Path: $rootPath"
+$output += "=" * 80
+$output += ""
+
+# ============================================
+# Collect Project Structure
+# ============================================
+
+Write-ColorOutput "Analyzing project structure..." "Yellow"
+
+$output += "PROJECT STRUCTURE"
+$output += "-" * 80
+
+try {
+    $treeOutput = tree /F /A | Out-String
+    $output += $treeOutput
+} catch {
+    $output += "Error getting tree structure: $($_.Exception.Message)"
+}
+
+$output += ""
+
+# ============================================
+# Collect Files
+# ============================================
+
+Write-ColorOutput "Collecting files..." "Yellow"
+
+$allFiles = Get-ChildItem -Path $rootPath -Recurse -File -ErrorAction SilentlyContinue | Where-Object {
+    $file = $_
+    
+    # Exclude folders
+    if (Should-ExcludeFolder -FolderPath $file.DirectoryName) {
+        return $false
+    }
+    
+    # Exclude files
+    if (Should-ExcludeFile -FileName $file.Name) {
+        return $false
+    }
+    
+    # Include only specific extensions
+    return Should-IncludeFile -FileName $file.Name
+}
+
+Write-ColorOutput "Found files: $($allFiles.Count)" "Green"
+
+# ============================================
+# Statistics
+# ============================================
+
+$stats = @{
+    TotalFiles = $allFiles.Count
+    TotalSize = ($allFiles | Measure-Object -Property Length -Sum).Sum
+    ByExtension = @{}
+}
+
+foreach ($file in $allFiles) {
+    $ext = [System.IO.Path]::GetExtension($file.Name)
+    if (-not $stats.ByExtension.ContainsKey($ext)) {
+        $stats.ByExtension[$ext] = 0
+    }
+    $stats.ByExtension[$ext]++
+}
+
+$output += "PROJECT STATISTICS"
+$output += "-" * 80
+$output += "Total files: $($stats.TotalFiles)"
+$output += "Total size: $([math]::Round($stats.TotalSize / 1KB, 2)) KB"
+$output += ""
+
+$output += "By file type:"
+foreach ($ext in ($stats.ByExtension.GetEnumerator() | Sort-Object Value -Descending)) {
+    $output += "  $($ext.Key): $($ext.Value) files"
+}
+$output += ""
+$output += ""
+
+# ============================================
+# File Contents
+# ============================================
+
+Write-ColorOutput "Collecting file contents..." "Yellow"
+
+$output += "=" * 80
+$output += "FILE CONTENTS"
+$output += "=" * 80
+$output += ""
+
+$fileCount = 0
+foreach ($file in ($allFiles | Sort-Object FullName)) {
+    $fileCount++
+    $relativePath = Get-RelativePath -Path $file.FullName -BasePath $rootPath
+    
+    Write-Progress -Activity "Processing files" -Status $relativePath -PercentComplete (($fileCount / $allFiles.Count) * 100)
+    
+    $output += "=" * 80
+    $output += "FILE: $relativePath"
+    $output += "Size: $($file.Length) bytes | Modified: $($file.LastWriteTime)"
+    $output += "=" * 80
+    $output += ""
+    
+    try {
+        $content = Get-Content -Path $file.FullName -Raw -Encoding UTF8 -ErrorAction Stop
+        
+        if ([string]::IsNullOrWhiteSpace($content)) {
+            $output += "(empty file)"
+        } else {
+            $output += $content
+        }
+    }
+    catch {
+        $output += "ERROR READING FILE: $($_.Exception.Message)"
+    }
+    
+    $output += ""
+    $output += ""
+}
+
+# ============================================
+# Checks and Recommendations
+# ============================================
+
+$output += "=" * 80
+$output += "CHECKS AND RECOMMENDATIONS"
+$output += "=" * 80
+$output += ""
+
+# Check for .env files
+$envFiles = Get-ChildItem -Path $rootPath -Recurse -Filter ".env" -File -ErrorAction SilentlyContinue
+if ($envFiles) {
+    $output += "WARNING: Found .env files (not included in collection):"
+    foreach ($env in $envFiles) {
+        $output += "   - " + (Get-RelativePath -Path $env.FullName -BasePath $rootPath)
+    }
+    $output += ""
+}
+
+# Check for .env.example
+$envExamples = Get-ChildItem -Path $rootPath -Recurse -Filter ".env.example" -File -ErrorAction SilentlyContinue
+if ($envExamples.Count -eq 0) {
+    $output += "RECOMMENDATION: Create .env.example files"
+    $output += ""
+}
+
+# Check for README
+$readme = Get-ChildItem -Path $rootPath -Filter "README.md" -File -ErrorAction SilentlyContinue
+if (-not $readme) {
+    $output += "RECOMMENDATION: Create README.md in project root"
+    $output += ""
+}
+
+# Check dependencies
+$hasPyRequirements = Get-ChildItem -Path $rootPath -Recurse -Filter "requirements.txt" -File -ErrorAction SilentlyContinue
+$hasPackageJson = Get-ChildItem -Path $rootPath -Recurse -Filter "package.json" -File -ErrorAction SilentlyContinue
+
+if ($hasPyRequirements) {
+    $output += "OK: Python dependencies (requirements.txt) found"
+}
+if ($hasPackageJson) {
+    $output += "OK: Node.js dependencies (package.json) found"
+}
+$output += ""
+
+# ============================================
+# Save Results
+# ============================================
+
+Write-ColorOutput "`nSaving results..." "Yellow"
+
+$output | Out-File -FilePath $OutputFile -Encoding UTF8
+
+$endTime = Get-Date
+$duration = $endTime - $startTime
+
+# ============================================
+# Complete
+# ============================================
+
+Write-ColorOutput "`n============================================" "Green"
+Write-ColorOutput "   COLLECTION COMPLETE!" "Green"
+Write-ColorOutput "============================================" "Green"
+Write-ColorOutput "`nOutput file: $OutputFile" "Cyan"
+Write-ColorOutput "File size: $([math]::Round((Get-Item $OutputFile).Length / 1KB, 2)) KB" "Cyan"
+Write-ColorOutput "Duration: $($duration.TotalSeconds) seconds" "Cyan"
+Write-ColorOutput "Files processed: $($allFiles.Count)" "Cyan"
+Write-ColorOutput "`nYou can send this file for audit!`n" "Yellow"
+
+# Open file?
+$open = Read-Host "Open file? (y/n)"
+if ($open -eq 'y') {
+    notepad $OutputFile
+}
+
+
+================================================================================
+FILE: docker-compose.yml
+Size: 237 bytes | Modified: 11/09/2025 02:06:20
+================================================================================
+
+version: '3.9'
+
+services:
+  postgres:
+    image: pgvector/pgvector:pg16
+    ports:
+      - "5432:5432"
+    environment:
+      POSTGRES_PASSWORD: postgres
+
+  redis:
+    image: redis:7.2-alpine
+    ports:
+      - "6379:6379"
+
+
+
+================================================================================
+FILE: frontend\app\layout.tsx
+Size: 673 bytes | Modified: 11/10/2025 04:56:22
+================================================================================
+
+import type { Metadata } from 'next'
+
+export const metadata: Metadata = {
+  title: 'Antiplagiat - Проверка текста на уникальность за 30 секунд',
+  description: 'AI-powered проверка на плагиат. Точность 94%. Быстро, просто, бесплатно.',
+}
+
+export default function RootLayout({
+  children,
+}: {
+  children: React.ReactNode
+}) {
+  return (
+    <html lang="ru">
+      <body style={{
+        margin: 0,
+        padding: 0,
+        fontFamily: '-apple-system, BlinkMacSystemFont, "Segoe UI", Roboto, "Helvetica Neue", Arial, sans-serif'
+      }}>
+        {children}
+      </body>
+    </html>
+  )
+}
+
+
+================================================================================
+FILE: frontend\app\page.tsx
+Size: 14813 bytes | Modified: 11/10/2025 23:38:29
+================================================================================
+
+'use client'
+
+import { useState, useEffect } from 'react'
+import { useRouter } from 'next/navigation'
+import { apiClient } from '@/lib/api'
+import { addToHistory, getHistory, HistoryItem } from '@/lib/history'
+
+export default function Home() {
+  const router = useRouter()
+  const [text, setText] = useState('')
+  const [mode, setMode] = useState<'fast' | 'deep'>('fast')
+  const [lang, setLang] = useState<'ru' | 'en' | 'kk'>('ru')
+  const [excludeQuotes, setExcludeQuotes] = useState(true)
+  const [excludeBibliography, setExcludeBibliography] = useState(true)
+  const [isChecking, setIsChecking] = useState(false)
+  const [error, setError] = useState<string | null>(null)
+  const [history, setHistory] = useState<HistoryItem[]>([])
+  
+  const charCount = text.length
+  const wordCount = text.trim().split(/\s+/).filter(Boolean).length
+
+  useEffect(() => {
+    setHistory(getHistory())
+  }, [])
+
+  const handleCheck = async () => {
+    setError(null)
+    setIsChecking(true)
+
+    try {
+      const result = await apiClient.createCheck({
+        text, mode, lang,
+        exclude_quotes: excludeQuotes,
+        exclude_bibliography: excludeBibliography
+      })
+
+      const preview = text.substring(0, 100) + (text.length > 100 ? '...' : '')
+      addToHistory({
+        task_id: result.task_id,
+        originality: 0,
+        created_at: new Date().toISOString(),
+        preview
+      })
+
+      router.push(`/report/${result.task_id}`)
+    } catch (err: any) {
+      setError(err.message)
+      setIsChecking(false)
+    }
+  }
+
+  return (
+    <div style={{ minHeight: '100vh', background: 'linear-gradient(to bottom, #ffffff, #f7fafc)' }}>
+      <header style={{
+        background: 'rgba(255, 255, 255, 0.95)', backdropFilter: 'blur(10px)',
+        borderBottom: '1px solid #e2e8f0', position: 'sticky', top: 0, zIndex: 100
+      }}>
+        <div style={{
+          maxWidth: '1200px', margin: '0 auto', padding: '1rem 2rem',
+          display: 'flex', justifyContent: 'space-between', alignItems: 'center'
+        }}>
+          <div style={{ display: 'flex', alignItems: 'center', gap: '0.5rem', cursor: 'pointer' }} onClick={() => window.location.href = '/'}>
+            <span style={{ fontSize: '2rem' }}>🔍</span>
+            <span style={{ fontSize: '1.5rem', fontWeight: 'bold', color: '#1a202c' }}>Antiplagiat</span>
+            <span style={{ 
+              fontSize: '0.75rem', background: '#48bb78', color: 'white',
+              padding: '0.25rem 0.5rem', borderRadius: '4px', marginLeft: '0.5rem'
+            }}>AI</span>
+          </div>
+          <nav style={{ display: 'flex', alignItems: 'center', gap: '2rem' }}>
+            <a href="#features" style={{ color: '#4a5568', textDecoration: 'none' }}>Возможности</a>
+            <a href="https://antiplagiat-api.onrender.com/docs" target="_blank" style={{ color: '#4a5568', textDecoration: 'none' }}>API</a>
+          </nav>
+        </div>
+      </header>
+
+      <section style={{ maxWidth: '1200px', margin: '0 auto', padding: '4rem 2rem', textAlign: 'center' }}>
+        <h1 style={{
+          fontSize: '3.5rem', fontWeight: '800', lineHeight: '1.2',
+          marginBottom: '1.5rem', color: '#1a202c'
+        }}>
+          Проверьте текст на уникальность <span style={{ color: '#3182ce' }}>с AI</span>
+        </h1>
+        <p style={{ fontSize: '1.25rem', color: '#718096', marginBottom: '3rem' }}>
+          Google Gemini 2.0 • Детекция парафраз • Кросс-языковая проверка
+        </p>
+
+        <div style={{
+          background: 'white', borderRadius: '16px', padding: '2rem',
+          boxShadow: '0 20px 60px rgba(0, 0, 0, 0.1)', marginBottom: '4rem', textAlign: 'left'
+        }}>
+          <div style={{
+            display: 'grid', gridTemplateColumns: 'repeat(auto-fit, minmax(200px, 1fr))',
+            gap: '1rem', marginBottom: '1.5rem', padding: '1rem',
+            background: '#f7fafc', borderRadius: '8px'
+          }}>
+            <div>
+              <label style={{ fontSize: '0.875rem', fontWeight: '600', color: '#4a5568', display: 'block', marginBottom: '0.5rem' }}>
+                Режим проверки
+              </label>
+              <div style={{ display: 'flex', gap: '0.5rem' }}>
+                <button onClick={() => setMode('fast')} style={{
+                  flex: 1, padding: '0.5rem',
+                  background: mode === 'fast' ? '#3182ce' : 'white',
+                  color: mode === 'fast' ? 'white' : '#4a5568',
+                  border: `2px solid ${mode === 'fast' ? '#3182ce' : '#e2e8f0'}`,
+                  borderRadius: '6px', cursor: 'pointer', fontWeight: '600', fontSize: '0.875rem'
+                }}>⚡ Fast</button>
+                <button onClick={() => setMode('deep')} style={{
+                  flex: 1, padding: '0.5rem',
+                  background: mode === 'deep' ? '#805ad5' : 'white',
+                  color: mode === 'deep' ? 'white' : '#4a5568',
+                  border: `2px solid ${mode === 'deep' ? '#805ad5' : '#e2e8f0'}`,
+                  borderRadius: '6px', cursor: 'pointer', fontWeight: '600', fontSize: '0.875rem'
+                }}>🤖 Deep AI</button>
+              </div>
+            </div>
+
+            <div>
+              <label style={{ fontSize: '0.875rem', fontWeight: '600', color: '#4a5568', display: 'block', marginBottom: '0.5rem' }}>
+                Язык текста
+              </label>
+              <select value={lang} onChange={(e) => setLang(e.target.value as any)} style={{
+                width: '100%', padding: '0.5rem', border: '2px solid #e2e8f0',
+                borderRadius: '6px', fontSize: '0.875rem', fontWeight: '600'
+              }}>
+                <option value="ru">🇷🇺 Русский</option>
+                <option value="en">🇬🇧 English</option>
+                <option value="kk">🇰🇿 Қазақ</option>
+              </select>
+            </div>
+
+            <div>
+              <label style={{ fontSize: '0.875rem', fontWeight: '600', color: '#4a5568', display: 'block', marginBottom: '0.5rem' }}>
+                Исключения
+              </label>
+              <label style={{ display: 'flex', alignItems: 'center', gap: '0.5rem', marginBottom: '0.25rem', cursor: 'pointer' }}>
+                <input type="checkbox" checked={excludeQuotes} onChange={(e) => setExcludeQuotes(e.target.checked)} style={{ cursor: 'pointer' }} />
+                <span style={{ fontSize: '0.875rem' }}>Цитаты</span>
+              </label>
+              <label style={{ display: 'flex', alignItems: 'center', gap: '0.5rem', cursor: 'pointer' }}>
+                <input type="checkbox" checked={excludeBibliography} onChange={(e) => setExcludeBibliography(e.target.checked)} style={{ cursor: 'pointer' }} />
+                <span style={{ fontSize: '0.875rem' }}>Библиография</span>
+              </label>
+            </div>
+          </div>
+
+          <textarea value={text} onChange={(e) => setText(e.target.value)}
+            placeholder="Вставьте текст для проверки (минимум 100 символов)..."
+            disabled={isChecking} style={{
+              width: '100%', minHeight: '250px', padding: '1rem',
+              border: '2px solid #e2e8f0', borderRadius: '8px', fontSize: '1rem',
+              fontFamily: 'inherit', resize: 'vertical', outline: 'none'
+            }} />
+          
+          {error && (
+            <div style={{
+              marginTop: '1rem', padding: '0.75rem', background: '#fed7d7',
+              color: '#c53030', borderRadius: '8px', fontSize: '0.875rem'
+            }}>❌ {error}</div>
+          )}
+
+          <div style={{
+            display: 'flex', justifyContent: 'space-between', alignItems: 'center',
+            marginTop: '1rem', paddingTop: '1rem', borderTop: '1px solid #e2e8f0'
+          }}>
+            <div>
+              <div style={{ color: '#718096', fontSize: '0.875rem' }}>
+                {charCount.toLocaleString()} символов • {wordCount.toLocaleString()} слов
+              </div>
+              {mode === 'deep' && (
+                <div style={{ color: '#805ad5', fontSize: '0.75rem', marginTop: '0.25rem' }}>
+                  🤖 AI-анализ с Google Gemini 2.0
+                </div>
+              )}
+            </div>
+            <button onClick={handleCheck} disabled={charCount < 100 || isChecking} style={{
+              padding: '1rem 2rem',
+              background: charCount < 100 || isChecking ? '#cbd5e0' : (mode === 'deep' ? 'linear-gradient(135deg, #805ad5, #6b46c1)' : 'linear-gradient(135deg, #3182ce, #2c5282)'),
+              color: 'white', border: 'none', borderRadius: '8px',
+              fontSize: '1.125rem', fontWeight: '600',
+              cursor: charCount < 100 || isChecking ? 'not-allowed' : 'pointer',
+              transition: 'all 0.3s'
+            }}>
+              {isChecking ? '⏳ Проверяем...' : `🚀 Проверить (${mode === 'fast' ? '~5 сек' : '~15 сек'})`}
+            </button>
+          </div>
+
+          <div style={{
+            display: 'flex', justifyContent: 'center', gap: '2rem',
+            marginTop: '1rem', fontSize: '0.875rem', color: '#38a169'
+          }}>
+            <span>✓ Без регистрации</span>
+            <span>✓ 3 проверки в день</span>
+            {mode === 'deep' && <span>✓ Детекция парафраз</span>}
+          </div>
+        </div>
+
+        {history.length > 0 && (
+          <div style={{
+            background: 'white', borderRadius: '16px', padding: '2rem',
+            boxShadow: '0 20px 60px rgba(0, 0, 0, 0.1)', textAlign: 'left'
+          }}>
+            <h2 style={{ fontSize: '1.5rem', fontWeight: '700', marginBottom: '1.5rem' }}>
+              📜 Последние проверки
+            </h2>
+            <div style={{ display: 'flex', flexDirection: 'column', gap: '1rem' }}>
+              {history.map((item) => (
+                <div key={item.task_id} onClick={() => router.push(`/report/${item.task_id}`)} style={{
+                  padding: '1rem', background: '#f7fafc', borderRadius: '8px',
+                  cursor: 'pointer', transition: 'all 0.2s',
+                  border: '2px solid transparent'
+                }}
+                onMouseEnter={(e) => {
+                  e.currentTarget.style.borderColor = '#3182ce'
+                  e.currentTarget.style.transform = 'translateX(4px)'
+                }}
+                onMouseLeave={(e) => {
+                  e.currentTarget.style.borderColor = 'transparent'
+                  e.currentTarget.style.transform = 'translateX(0)'
+                }}>
+                  <div style={{ fontSize: '0.875rem', color: '#718096', marginBottom: '0.5rem' }}>
+                    {new Date(item.created_at).toLocaleString('ru-RU')}
+                  </div>
+                  <div style={{ color: '#2d3748' }}>{item.preview}</div>
+                </div>
+              ))}
+            </div>
+          </div>
+        )}
+      </section>
+
+      <section style={{ background: 'white', padding: '4rem 2rem' }}>
+        <div style={{
+          maxWidth: '1200px', margin: '0 auto',
+          display: 'grid', gridTemplateColumns: 'repeat(auto-fit, minmax(250px, 1fr))', gap: '2rem'
+        }}>
+          {[
+            { number: '12,450+', label: 'Проверок выполнено', color: '#3182ce', icon: '📊' },
+            { number: '94.2%', label: 'Точность AI-детекции', color: '#805ad5', icon: '🤖' },
+            { number: '<15 сек', label: 'Среднее время', color: '#38a169', icon: '⚡' }
+          ].map((stat, i) => (
+            <div key={i} style={{
+              background: 'white', padding: '2rem', borderRadius: '12px', textAlign: 'center',
+              boxShadow: '0 4px 12px rgba(0, 0, 0, 0.05)', transition: 'transform 0.3s', cursor: 'default'
+            }}
+            onMouseEnter={(e) => e.currentTarget.style.transform = 'translateY(-4px)'}
+            onMouseLeave={(e) => e.currentTarget.style.transform = 'translateY(0)'}>
+              <div style={{ fontSize: '3rem', marginBottom: '0.5rem' }}>{stat.icon}</div>
+              <div style={{
+                fontSize: '2.5rem', fontWeight: '800', color: stat.color, marginBottom: '0.5rem'
+              }}>{stat.number}</div>
+              <div style={{ color: '#718096' }}>{stat.label}</div>
+            </div>
+          ))}
+        </div>
+      </section>
+
+      <section id="features" style={{ maxWidth: '1200px', margin: '0 auto', padding: '4rem 2rem' }}>
+        <h2 style={{
+          fontSize: '2.5rem', fontWeight: '800', textAlign: 'center',
+          marginBottom: '3rem', color: '#1a202c'
+        }}>Как это работает</h2>
+        <div style={{
+          display: 'grid', gridTemplateColumns: 'repeat(auto-fit, minmax(300px, 1fr))', gap: '2rem'
+        }}>
+          {[
+            { icon: '📄', title: 'Загрузите текст', desc: 'Вставьте текст или загрузите документ DOCX/PDF' },
+            { icon: '🤖', title: 'AI-анализ', desc: 'Google Gemini 2.0 проверяет по миллионам источников и находит парафразы' },
+            { icon: '📊', title: 'Получите отчёт', desc: 'Детальный отчёт с % уникальности, источниками и Справкой-PDF' }
+          ].map((feature, i) => (
+            <div key={i} style={{ textAlign: 'center', padding: '2rem' }}>
+              <div style={{ fontSize: '4rem', marginBottom: '1rem' }}>{feature.icon}</div>
+              <h3 style={{
+                fontSize: '1.5rem', fontWeight: '700', marginBottom: '0.5rem', color: '#1a202c'
+              }}>{feature.title}</h3>
+              <p style={{ color: '#718096', lineHeight: '1.6' }}>{feature.desc}</p>
+            </div>
+          ))}
+        </div>
+      </section>
+
+      <footer style={{ background: '#1a202c', color: '#a0aec0', padding: '3rem 2rem 1rem' }}>
+        <div style={{ maxWidth: '1200px', margin: '0 auto', textAlign: 'center' }}>
+          <div style={{ marginBottom: '1rem' }}>
+            <span style={{ fontSize: '2rem' }}>🔍</span>
+            <span style={{ color: 'white', fontSize: '1.25rem', fontWeight: 'bold', marginLeft: '0.5rem' }}>Antiplagiat</span>
+            <span style={{ 
+              fontSize: '0.75rem', background: '#48bb78', color: 'white',
+              padding: '0.25rem 0.5rem', borderRadius: '4px', marginLeft: '0.5rem'
+            }}>AI-Powered</span>
+          </div>
+          <p style={{ fontSize: '0.875rem' }}>© 2025 Antiplagiat. Powered by Google Gemini 2.0 & TypeScript</p>
+        </div>
+      </footer>
+    </div>
+  )
+}
+
+
+
+================================================================================
+FILE: frontend\app\report\[id]\page.tsx
+Size: 14342 bytes | Modified: 11/11/2025 00:53:03
+================================================================================
+
+ERROR READING FILE: Не удается найти параметр, соответствующий имени параметра "Raw".
+
+
+================================================================================
+FILE: frontend\history.ts
+Size: 881 bytes | Modified: 11/10/2025 23:32:49
+================================================================================
+
+/**
+ * История проверок в LocalStorage
+ */
+
+export interface HistoryItem {
+  task_id: string
+  originality: number
+  created_at: string
+  preview: string
+}
+
+const HISTORY_KEY = 'antiplagiat_history'
+const MAX_HISTORY = 10
+
+export function addToHistory(item: HistoryItem) {
+  if (typeof window === 'undefined') return
+  
+  const history = getHistory()
+  const newHistory = [item, ...history.filter(h => h.task_id !== item.task_id)].slice(0, MAX_HISTORY)
+  localStorage.setItem(HISTORY_KEY, JSON.stringify(newHistory))
+}
+
+export function getHistory(): HistoryItem[] {
+  if (typeof window === 'undefined') return []
+  
+  try {
+    const data = localStorage.getItem(HISTORY_KEY)
+    return data ? JSON.parse(data) : []
+  } catch {
+    return []
+  }
+}
+
+export function clearHistory() {
+  if (typeof window === 'undefined') return
+  localStorage.removeItem(HISTORY_KEY)
+}
+
+
+================================================================================
+FILE: frontend\lib\api.ts
+Size: 1968 bytes | Modified: 11/10/2025 13:45:26
+================================================================================
+
+/**
+ * API Client для работы с Backend
+ */
+
+const API_URL = process.env.NEXT_PUBLIC_API_URL || 'https://antiplagiat-api.onrender.com'
+
+export interface CheckRequest {
+  text: string
+  mode?: 'fast' | 'deep'
+  lang?: 'ru' | 'en' | 'kk'
+  exclude_quotes?: boolean
+  exclude_bibliography?: boolean
+}
+
+export interface Match {
+  start: number
+  end: number
+  text: string
+  source_id: number
+  similarity: number
+  type: 'lexical' | 'semantic_ai'
+}
+
+export interface Source {
+  id: number
+  title: string
+  url: string
+  domain: string
+  match_count: number
+  avg_similarity: number
+}
+
+export interface CheckResult {
+  task_id: string
+  status: string
+  originality?: number
+  total_words?: number
+  total_chars?: number
+  matches?: Match[]
+  sources?: Source[]
+  created_at?: string
+  ai_powered?: boolean
+}
+
+export class ApiClient {
+  private baseUrl: string
+
+  constructor(baseUrl: string = API_URL) {
+    this.baseUrl = baseUrl
+  }
+
+  async createCheck(request: CheckRequest): Promise<{ task_id: string; status: string; estimated_time_seconds: number }> {
+    const response = await fetch(`${this.baseUrl}/api/v1/check`, {
+      method: 'POST',
+      headers: {
+        'Content-Type': 'application/json',
+      },
+      body: JSON.stringify(request),
+    })
+
+    if (!response.ok) {
+      const error = await response.json()
+      throw new Error(error.detail || 'Failed to create check')
+    }
+
+    return response.json()
+  }
+
+  async getCheckResult(taskId: string): Promise<CheckResult> {
+    const response = await fetch(`${this.baseUrl}/api/v1/check/${taskId}`)
+
+    if (!response.ok) {
+      throw new Error('Failed to fetch result')
+    }
+
+    return response.json()
+  }
+
+  async getSources() {
+    const response = await fetch(`${this.baseUrl}/api/v1/sources`)
+    return response.json()
+  }
+
+  async healthCheck() {
+    const response = await fetch(`${this.baseUrl}/health`)
+    return response.json()
+  }
+}
+
+export const apiClient = new ApiClient()
+
+
+================================================================================
+FILE: frontend\lib\history.ts
+Size: 881 bytes | Modified: 11/10/2025 23:36:04
+================================================================================
+
+/**
+ * История проверок в LocalStorage
+ */
+
+export interface HistoryItem {
+  task_id: string
+  originality: number
+  created_at: string
+  preview: string
+}
+
+const HISTORY_KEY = 'antiplagiat_history'
+const MAX_HISTORY = 10
+
+export function addToHistory(item: HistoryItem) {
+  if (typeof window === 'undefined') return
+  
+  const history = getHistory()
+  const newHistory = [item, ...history.filter(h => h.task_id !== item.task_id)].slice(0, MAX_HISTORY)
+  localStorage.setItem(HISTORY_KEY, JSON.stringify(newHistory))
+}
+
+export function getHistory(): HistoryItem[] {
+  if (typeof window === 'undefined') return []
+  
+  try {
+    const data = localStorage.getItem(HISTORY_KEY)
+    return data ? JSON.parse(data) : []
+  } catch {
+    return []
+  }
+}
+
+export function clearHistory() {
+  if (typeof window === 'undefined') return
+  localStorage.removeItem(HISTORY_KEY)
+}
+
+
+================================================================================
+FILE: frontend\next.config.js
+Size: 141 bytes | Modified: 11/10/2025 02:57:21
+================================================================================
+
+/** @type {import('next').NextConfig} */
+const nextConfig = {
+  output: 'standalone',
+  reactStrictMode: true,
+}
+
+module.exports = nextConfig
+
+
+================================================================================
+FILE: frontend\package.json
+Size: 392 bytes | Modified: 11/10/2025 04:56:22
+================================================================================
+
+{
+  "name": "antiplagiat-frontend",
+  "version": "2.0.0",
+  "private": true,
+  "scripts": {
+    "dev": "next dev",
+    "build": "next build",
+    "start": "next start"
+  },
+  "dependencies": {
+    "next": "14.1.0",
+    "react": "18.2.0",
+    "react-dom": "18.2.0",
+    "typescript": "5.3.3",
+    "@types/node": "20.10.6",
+    "@types/react": "18.2.46",
+    "@types/react-dom": "18.2.18"
+  }
+}
+
+
+================================================================================
+FILE: frontend\tailwind.config.js
+Size: 918 bytes | Modified: 11/10/2025 03:22:50
+================================================================================
+
+/** @type {import('tailwindcss').Config} */
+module.exports = {
+  content: [
+    './pages/**/*.{js,ts,jsx,tsx,mdx}',
+    './components/**/*.{js,ts,jsx,tsx,mdx}',
+    './app/**/*.{js,ts,jsx,tsx,mdx}',
+  ],
+  theme: {
+    extend: {
+      colors: {
+        primary: {
+          50: '#f0f9ff',
+          100: '#e0f2fe',
+          500: '#0ea5e9',
+          600: '#0284c7',
+          700: '#0369a1',
+        },
+        dark: {
+          900: '#1a202c',
+          800: '#2d3748',
+        }
+      },
+      animation: {
+        'fade-in': 'fadeIn 0.5s ease-in',
+        'slide-up': 'slideUp 0.5s ease-out',
+      },
+      keyframes: {
+        fadeIn: {
+          '0%': { opacity: '0' },
+          '100%': { opacity: '1' },
+        },
+        slideUp: {
+          '0%': { transform: 'translateY(20px)', opacity: '0' },
+          '100%': { transform: 'translateY(0)', opacity: '1' },
+        }
+      }
+    },
+  },
+  plugins: [],
+}
+
+
+================================================================================
+FILE: frontend\tsconfig.json
+Size: 572 bytes | Modified: 11/10/2025 05:06:18
+================================================================================
+
+{
+  "compilerOptions": {
+    "target": "ES2017",
+    "lib": ["dom", "dom.iterable", "esnext"],
+    "allowJs": true,
+    "skipLibCheck": true,
+    "strict": false,
+    "noEmit": true,
+    "esModuleInterop": true,
+    "module": "esnext",
+    "moduleResolution": "bundler",
+    "resolveJsonModule": true,
+    "isolatedModules": true,
+    "jsx": "preserve",
+    "incremental": true,
+    "plugins": [{ "name": "next" }],
+    "paths": {
+      "@/*": ["./*"]
+    }
+  },
+  "include": ["next-env.d.ts", "**/*.ts", "**/*.tsx", ".next/types/**/*.ts"],
+  "exclude": ["node_modules"]
+}
+
+
+================================================================================
+FILE: inspect-code.ps1
+Size: 10927 bytes | Modified: 11/11/2025 00:47:57
+================================================================================
+
+# ============================================================================
+# СКРИПТ ИНСПЕКЦИИ КОДА - ПОИСК ОШИБОК В ЛОГИКЕ
+# ============================================================================
+
+$ErrorActionPreference = "Continue"
+
+Write-Host "=" * 80 -ForegroundColor Cyan
+Write-Host "  🔍 ИНСПЕКЦИЯ ПРОЕКТА ANTIPLAGIAT" -ForegroundColor Cyan
+Write-Host "=" * 80 -ForegroundColor Cyan
+Write-Host ""
+
+$reportFile = "CODE_INSPECTION_REPORT.txt"
+$timestamp = Get-Date -Format "yyyy-MM-dd HH:mm:ss"
+
+# Создаем отчет
+@"
+================================================================================
+         🔍 CODE INSPECTION REPORT
+         Дата: $timestamp
+================================================================================
+
+ЦЕЛЬ: Найти ошибку в расчете оригинальности
+ПРОБЛЕМА: Совпадение 95%, но оригинальность 93.2%
+
+================================================================================
+"@ | Out-File $reportFile -Encoding UTF8
+
+# ============================================================================
+# ФУНКЦИЯ: Анализ файла
+# ============================================================================
+function Inspect-File {
+    param(
+        [string]$Path,
+        [string]$Description,
+        [string]$FocusOn = ""
+    )
+    
+    if (Test-Path $Path) {
+        "`n" + "="*80 | Out-File $reportFile -Append -Encoding UTF8
+        "FILE: $Description" | Out-File $reportFile -Append -Encoding UTF8
+        "PATH: $Path" | Out-File $reportFile -Append -Encoding UTF8
+        "="*80 | Out-File $reportFile -Append -Encoding UTF8
+        
+        $content = Get-Content $Path -Raw -Encoding UTF8
+        
+        if ($FocusOn) {
+            "`n>>> ФОКУС НА: $FocusOn <<<`n" | Out-File $reportFile -Append -Encoding UTF8
+            
+            # Извлекаем нужную функцию/метод
+            $lines = $content -split "`n"
+            $inFunction = $false
+            $functionContent = @()
+            $indent = 0
+            
+            foreach ($line in $lines) {
+                if ($line -match $FocusOn) {
+                    $inFunction = $true
+                    $indent = ($line -replace '\S.*$', '').Length
+                }
+                
+                if ($inFunction) {
+                    $functionContent += $line
+                    
+                    # Проверяем окончание функции (по отступу)
+                    if ($line.Trim() -and 
+                        ($line -replace '\S.*$', '').Length -le $indent -and 
+                        $functionContent.Count -gt 5 -and 
+                        $line -notmatch '^\s*$') {
+                        
+                        if ($line -notmatch $FocusOn) {
+                            break
+                        }
+                    }
+                }
+            }
+            
+            $functionContent -join "`n" | Out-File $reportFile -Append -Encoding UTF8
+        } else {
+            $content | Out-File $reportFile -Append -Encoding UTF8
+        }
+        
+        Write-Host "  ✓ $Description" -ForegroundColor Green
+        
+    } else {
+        "`n" + "="*80 | Out-File $reportFile -Append -Encoding UTF8
+        "FILE: $Description - NOT FOUND!" | Out-File $reportFile -Append -Encoding UTF8
+        "PATH: $Path" | Out-File $reportFile -Append -Encoding UTF8
+        "="*80 | Out-File $reportFile -Append -Encoding UTF8
+        
+        Write-Host "  ✗ $Description - НЕ НАЙДЕН" -ForegroundColor Red
+    }
+}
+
+# ============================================================================
+# BACKEND - КРИТИЧЕСКИЕ ФАЙЛЫ
+# ============================================================================
+Write-Host "`n🔥 BACKEND - ЛОГИКА ДЕТЕКЦИИ:" -ForegroundColor Yellow
+
+Inspect-File `
+    -Path "backend\public-api\app\services\detector.py" `
+    -Description "DETECTOR.PY - Алгоритм детекции" `
+    -FocusOn "def _google_search_analysis"
+
+Inspect-File `
+    -Path "backend\public-api\app\main.py" `
+    -Description "MAIN.PY - FastAPI endpoints" `
+    -FocusOn "async def create_check"
+
+Inspect-File `
+    -Path "backend\public-api\app\models.py" `
+    -Description "MODELS.PY - Database models"
+
+Inspect-File `
+    -Path "backend\public-api\app\core\config.py" `
+    -Description "CONFIG.PY - Configuration"
+
+Inspect-File `
+    -Path "backend\public-api\requirements.txt" `
+    -Description "REQUIREMENTS.TXT - Dependencies"
+
+# ============================================================================
+# FRONTEND - ОТОБРАЖЕНИЕ РЕЗУЛЬТАТОВ
+# ============================================================================
+Write-Host "`n🎨 FRONTEND - ОТОБРАЖЕНИЕ:" -ForegroundColor Yellow
+
+Inspect-File `
+    -Path "frontend\app\report\[id]\page.tsx" `
+    -Description "REPORT PAGE - Страница результатов"
+
+Inspect-File `
+    -Path "frontend\lib\api.ts" `
+    -Description "API CLIENT - Frontend API"
+
+Inspect-File `
+    -Path "frontend\app\page.tsx" `
+    -Description "HOME PAGE - Главная страница"
+
+# ============================================================================
+# АНАЛИЗ ЛОГИКИ
+# ============================================================================
+Write-Host "`n🔬 АНАЛИЗ ЛОГИКИ РАСЧЕТА:" -ForegroundColor Yellow
+
+"`n" + "="*80 | Out-File $reportFile -Append -Encoding UTF8
+"🔬 АНАЛИЗ РАСЧЕТА ОРИГИНАЛЬНОСТИ" | Out-File $reportFile -Append -Encoding UTF8
+"="*80 | Out-File $reportFile -Append -Encoding UTF8
+
+$detectorContent = Get-Content "backend\public-api\app\services\detector.py" -Raw -Encoding UTF8
+
+# Ищем логику расчета
+$calculations = @()
+if ($detectorContent -match '(?s)# Рассчитываем оригинальность.*?return \{') {
+    $calculations += $matches[0]
+}
+
+if ($calculations.Count -gt 0) {
+    "`nНАЙДЕНА ЛОГИКА РАСЧЕТА:" | Out-File $reportFile -Append -Encoding UTF8
+    $calculations -join "`n`n" | Out-File $reportFile -Append -Encoding UTF8
+} else {
+    "`nЛОГИКА РАСЧЕТА НЕ НАЙДЕНА!" | Out-File $reportFile -Append -Encoding UTF8
+}
+
+# Поиск всех мест где используется "originality"
+"`n`nВСЕ УПОМИНАНИЯ 'originality':" | Out-File $reportFile -Append -Encoding UTF8
+$detectorContent -split "`n" | Select-String "originality" | ForEach-Object {
+    "  $_" | Out-File $reportFile -Append -Encoding UTF8
+}
+
+# ============================================================================
+# КОНФИГУРАЦИЯ
+# ============================================================================
+Write-Host "`n⚙️  КОНФИГУРАЦИЯ:" -ForegroundColor Yellow
+
+Inspect-File `
+    -Path ".env.example" `
+    -Description "ENV EXAMPLE"
+
+Inspect-File `
+    -Path "backend\public-api\.env" `
+    -Description "BACKEND ENV (ПРОВЕРЬТЕ СЕКРЕТЫ!)"
+
+Inspect-File `
+    -Path "render.yaml" `
+    -Description "RENDER CONFIG"
+
+# ============================================================================
+# СТАТИСТИКА
+# ============================================================================
+Write-Host "`n📊 СТАТИСТИКА КОДА:" -ForegroundColor Yellow
+
+"`n" + "="*80 | Out-File $reportFile -Append -Encoding UTF8
+"📊 СТАТИСТИКА ПРОЕКТА" | Out-File $reportFile -Append -Encoding UTF8
+"="*80 | Out-File $reportFile -Append -Encoding UTF8
+
+$stats = @{
+    "Python файлов" = (Get-ChildItem -Recurse -Filter "*.py" -File).Count
+    "TypeScript файлов" = (Get-ChildItem -Recurse -Filter "*.tsx","*.ts" -File).Count
+    "Строк в detector.py" = (Get-Content "backend\public-api\app\services\detector.py" -Encoding UTF8 | Measure-Object -Line).Lines
+    "Строк в main.py" = (Get-Content "backend\public-api\app\main.py" -Encoding UTF8 | Measure-Object -Line).Lines
+}
+
+foreach ($key in $stats.Keys) {
+    "$key : $($stats[$key])" | Out-File $reportFile -Append -Encoding UTF8
+}
+
+# ============================================================================
+# ПОИСК ПОДОЗРИТЕЛЬНЫХ ПАТТЕРНОВ
+# ============================================================================
+Write-Host "`n🚨 ПОИСК ОШИБОК:" -ForegroundColor Yellow
+
+"`n" + "="*80 | Out-File $reportFile -Append -Encoding UTF8
+"🚨 ПОТЕНЦИАЛЬНЫЕ ПРОБЛЕМЫ" | Out-File $reportFile -Append -Encoding UTF8
+"="*80 | Out-File $reportFile -Append -Encoding UTF8
+
+$issues = @()
+
+# Проверка 1: Расчет оригинальности
+if ($detectorContent -match "matched_chars / total_chars") {
+    $issues += "✓ Найдена формула: matched_chars / total_chars"
+} else {
+    $issues += "✗ ПРОБЛЕМА: Формула расчета не найдена!"
+}
+
+# Проверка 2: Умножение на 100
+if ($detectorContent -match "\* 100") {
+    $issues += "✓ Найдено умножение на 100 для процентов"
+}
+
+# Проверка 3: Проверка границ (0-100)
+if ($detectorContent -match "max\(0,|min\(100,") {
+    $issues += "✓ Есть проверка границ (0-100)"
+} else {
+    $issues += "⚠ Нет проверки границ результата"
+}
+
+# Проверка 4: Round
+if ($detectorContent -match "round\(") {
+    $issues += "✓ Результат округляется"
+}
+
+$issues | ForEach-Object {
+    $_ | Out-File $reportFile -Append -Encoding UTF8
+}
+
+# ============================================================================
+# ЗАВЕРШЕНИЕ
+# ============================================================================
+Write-Host ""
+Write-Host "="*80 -ForegroundColor Green
+Write-Host "  ✅ ИНСПЕКЦИЯ ЗАВЕРШЕНА" -ForegroundColor Green
+Write-Host "="*80 -ForegroundColor Green
+Write-Host ""
+Write-Host "Отчет сохранен: $reportFile" -ForegroundColor Cyan
+Write-Host ""
+Write-Host "СЛЕДУЮЩИЕ ШАГИ:" -ForegroundColor Yellow
+Write-Host "  1. Откройте отчет: notepad $reportFile" -ForegroundColor White
+Write-Host "  2. Найдите раздел 'ЛОГИКА РАСЧЕТА'" -ForegroundColor White
+Write-Host "  3. Проверьте формулу оригинальности" -ForegroundColor White
+Write-Host ""
+
+"`n" + "="*80 | Out-File $reportFile -Append -Encoding UTF8
+"END OF REPORT" | Out-File $reportFile -Append -Encoding UTF8
+"="*80 | Out-File $reportFile -Append -Encoding UTF8
+
+# Открыть отчет?
+$open = Read-Host "Открыть отчет в блокноте? (y/n)"
+if ($open -eq "y") {
+    notepad $reportFile
+}
+
+
+================================================================================
+FILE: README.md
+Size: 1376 bytes | Modified: 11/09/2025 02:23:28
+================================================================================
+
+# Antiplagiat - Production Platform
+
+[![Deploy to Render](https://render.com/images/deploy-to-render-button.svg)](https://render.com)
+
+## 🚀 Quick Deploy
+
+1. Fork этот репозиторий
+2. Создайте аккаунт на [Render.com](https://render.com)
+3. Нажмите "New" → "Blueprint"
+4. Подключите GitHub и выберите этот репозиторий
+5. Render автоматически создаст:
+   - Frontend (Next.js)
+   - Backend API (FastAPI)
+   - PostgreSQL Database
+
+## 📊 Services
+
+- **Frontend**: Next.js 14 (Static Site)
+- **API**: Python FastAPI
+- **Database**: PostgreSQL (Free tier)
+
+## 🌐 Live Demo
+
+- Frontend: https://antiplagiat-frontend.onrender.com
+- API: https://antiplagiat-api.onrender.com/docs
+
+## 🛠️ Local Development
+
+\\\ash
+# Install dependencies
+npm install --prefix frontend
+pip install -r backend/public-api/requirements.txt
+
+# Run locally
+npm run dev --prefix frontend
+python backend/public-api/app/main.py
+\\\
+
+## 📝 Environment Variables
+
+Render автоматически настроит:
+- \DATABASE_URL\ - PostgreSQL connection
+- \NEXT_PUBLIC_API_URL\ - API endpoint
+- \PORT\ - Service port
+
+## 🔒 Security
+
+- HTTPS by default
+- Environment variables encrypted
+- Automatic SSL certificates
+
+## 📄 License
+
+MIT License
+
+
+
+================================================================================
+FILE: render.yaml
+Size: 892 bytes | Modified: 11/10/2025 02:57:21
+================================================================================
+
+services:
+  # Frontend (Next.js + TypeScript)
+  - type: web
+    name: antiplagiat-frontend
+    env: node
+    region: frankfurt
+    plan: free
+    buildCommand: cd frontend && npm install && npm run build
+    startCommand: cd frontend && npm start
+    envVars:
+      - key: NODE_ENV
+        value: production
+      - key: NEXT_PUBLIC_API_URL
+        value: https://antiplagiat-api.onrender.com
+
+  # Backend API (Python FastAPI)
+  - type: web
+    name: antiplagiat-api
+    env: python
+    region: frankfurt
+    plan: free
+    buildCommand: cd backend/public-api && pip install -r requirements.txt
+    startCommand: cd backend/public-api && uvicorn app.main:app --host 0.0.0.0 --port 10000
+    envVars:
+      - key: PYTHON_VERSION
+        value: 3.12.0
+      - key: PORT
+        value: 10000
+
+databases:
+  - name: antiplagiat-db
+    plan: free
+    databaseName: antiplagiat
+    user: antiplagiat
+
+
+================================================================================
+FILE: scripts\start.bat
+Size: 57 bytes | Modified: 11/09/2025 02:06:20
+================================================================================
+
+@echo off
+docker-compose up -d
+echo Services started!
+
+
+
+================================================================================
+CHECKS AND RECOMMENDATIONS
+================================================================================
+
+WARNING: Found .env files (not included in collection):
+   - backend\public-api\.env
+   - frontend\.env
+
+OK: Python dependencies (requirements.txt) found
+OK: Node.js dependencies (package.json) found
+

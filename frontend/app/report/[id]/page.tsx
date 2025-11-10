@@ -2,28 +2,65 @@
 
 import { useEffect, useState } from 'react'
 import { useParams, useRouter } from 'next/navigation'
-import { apiClient, CheckResult } from '@/lib/api'
+
+interface Match {
+  start: number
+  end: number
+  text: string
+  source_id: number
+  similarity: number
+  type: string
+}
+
+interface Source {
+  id: number
+  title: string
+  url: string
+  domain: string
+  match_count: number
+}
+
+interface ReportData {
+  task_id: string
+  status: string
+  originality: number
+  total_words: number
+  total_chars: number
+  matches: Match[]
+  sources: Source[]
+  created_at: string
+  ai_powered: boolean
+  note?: string
+}
 
 export default function ReportPage() {
   const params = useParams()
   const router = useRouter()
-  const [result, setResult] = useState<CheckResult | null>(null)
+  const [report, setReport] = useState<ReportData | null>(null)
   const [loading, setLoading] = useState(true)
   const [error, setError] = useState<string | null>(null)
   const [copied, setCopied] = useState(false)
 
   useEffect(() => {
-    const fetchResult = async () => {
+    const fetchReport = async () => {
       try {
-        const data = await apiClient.getCheckResult(params.id as string)
-        setResult(data)
+        const API_URL = process.env.NEXT_PUBLIC_API_URL || 'https://antiplagiat-api.onrender.com'
+        const response = await fetch(`${API_URL}/api/v1/check/${params.id}`)
+        
+        if (!response.ok) {
+          throw new Error('Отчет не найден')
+        }
+        
+        const data = await response.json()
+        setReport(data)
       } catch (err: any) {
         setError(err.message)
       } finally {
         setLoading(false)
       }
     }
-    fetchResult()
+
+    fetchReport()
   }, [params.id])
 
   const shareLink = () => {
@@ -35,7 +72,7 @@ export default function ReportPage() {
 
   if (loading) {
     return (
-      <div style={{ minHeight: '100vh', display: 'flex', alignItems: 'center', justifyContent: 'center' }}>
+      <div style={{ minHeight: '100vh', display: 'flex', alignItems: 'center', justifyContent: 'center', background: 'linear-gradient(to bottom, #ffffff, #f7fafc)' }}>
         <div style={{ textAlign: 'center' }}>
           <div style={{ fontSize: '4rem', marginBottom: '1rem' }}>⏳</div>
           <div style={{ fontSize: '1.5rem', color: '#718096' }}>Загрузка результатов...</div>
@@ -44,55 +81,83 @@ export default function ReportPage() {
     )
   }
 
-  if (error || !result) {
+  if (error || !report) {
     return (
-      <div style={{ minHeight: '100vh', display: 'flex', alignItems: 'center', justifyContent: 'center' }}>
+      <div style={{ minHeight: '100vh', display: 'flex', alignItems: 'center', justifyContent: 'center', background: 'linear-gradient(to bottom, #ffffff, #f7fafc)' }}>
         <div style={{ textAlign: 'center' }}>
           <div style={{ fontSize: '4rem', marginBottom: '1rem' }}>❌</div>
-          <div style={{ fontSize: '1.5rem', color: '#e53e3e', marginBottom: '1rem' }}>{error || 'Отчет не найден'}</div>
-          <button onClick={() => router.push('/')} style={{
-            padding: '0.75rem 1.5rem', background: '#3182ce', color: 'white',
-            border: 'none', borderRadius: '8px', cursor: 'pointer', fontSize: '1rem'
-          }}>Вернуться на главную</button>
+          <div style={{ fontSize: '1.5rem', color: '#e53e3e', marginBottom: '1rem' }}>
+            {error || 'Отчет не найден'}
+          </div>
+          <button
+            onClick={() => router.push('/')}
+            style={{
+              padding: '0.75rem 1.5rem',
+              background: '#3182ce',
+              color: 'white',
+              border: 'none',
+              borderRadius: '8px',
+              cursor: 'pointer',
+              fontSize: '1rem',
+              fontWeight: '600'
+            }}
+          >
+            Вернуться на главную
+          </button>
         </div>
       </div>
     )
   }
 
-  const originality = result.originality || 0
+  const originality = report.originality || 0
   const isGood = originality >= 80
-  const isWarning = originality >= 60 && originality < 80
+  const isWarning = originality >= 50 && originality < 80
+  const isBad = originality < 50
 
   return (
     <div style={{ minHeight: '100vh', background: 'linear-gradient(to bottom, #ffffff, #f7fafc)' }}>
-      {/* Toast Notification */}
+      {/* Toast */}
       {copied && (
         <div style={{
-          position: 'fixed', top: '2rem', right: '2rem', zIndex: 1000,
-          background: '#48bb78', color: 'white', padding: '1rem 1.5rem',
-          borderRadius: '8px', boxShadow: '0 10px 40px rgba(0,0,0,0.2)',
+          position: 'fixed',
+          top: '2rem',
+          right: '2rem',
+          zIndex: 1000,
+          background: '#48bb78',
+          color: 'white',
+          padding: '1rem 1.5rem',
+          borderRadius: '8px',
+          boxShadow: '0 10px 40px rgba(0,0,0,0.2)',
           animation: 'slideIn 0.3s ease-out'
         }}>
           ✓ Ссылка скопирована!
         </div>
       )}
 
-      <style jsx>{`
-        @keyframes slideIn {
-          from { transform: translateX(100%); opacity: 0; }
-          to { transform: translateX(0); opacity: 1; }
-        }
-      `}</style>
-
+      {/* Header */}
       <header style={{
-        background: 'rgba(255, 255, 255, 0.95)', backdropFilter: 'blur(10px)',
-        borderBottom: '1px solid #e2e8f0', padding: '1rem 2rem'
+        background: 'rgba(255, 255, 255, 0.95)',
+        backdropFilter: 'blur(10px)',
+        borderBottom: '1px solid #e2e8f0',
+        padding: '1rem 2rem',
+        position: 'sticky',
+        top: 0,
+        zIndex: 100
       }}>
         <div style={{ maxWidth: '1200px', margin: '0 auto', display: 'flex', alignItems: 'center', gap: '1rem' }}>
-          <button onClick={() => router.push('/')} style={{
-            padding: '0.5rem 1rem', background: 'transparent', border: '2px solid #e2e8f0',
-            borderRadius: '8px', cursor: 'pointer', fontSize: '1rem'
-          }}>← Назад</button>
+          <button
+            onClick={() => router.push('/')}
+            style={{
+              padding: '0.5rem 1rem',
+              background: 'transparent',
+              border: '2px solid #e2e8f0',
+              borderRadius: '8px',
+              cursor: 'pointer',
+              fontSize: '1rem'
+            }}
+          >
+            ← Назад
+          </button>
           <div style={{ display: 'flex', alignItems: 'center', gap: '0.5rem' }}>
             <span style={{ fontSize: '1.5rem' }}>🔍</span>
             <span style={{ fontSize: '1.25rem', fontWeight: 'bold' }}>Antiplagiat</span>
@@ -100,107 +165,181 @@ export default function ReportPage() {
         </div>
       </header>
 
+      {/* Content */}
       <div style={{ maxWidth: '1200px', margin: '0 auto', padding: '3rem 2rem' }}>
         <div style={{
-          background: 'white', borderRadius: '16px', padding: '3rem',
-          boxShadow: '0 20px 60px rgba(0, 0, 0, 0.1)', marginBottom: '2rem'
+          background: 'white',
+          borderRadius: '16px',
+          padding: '3rem',
+          boxShadow: '0 20px 60px rgba(0, 0, 0, 0.1)',
+          marginBottom: '2rem'
         }}>
+          {/* Main Score */}
           <div style={{ textAlign: 'center', marginBottom: '3rem' }}>
             <div style={{
-              fontSize: '6rem', fontWeight: '800',
+              fontSize: '6rem',
+              fontWeight: '800',
               color: isGood ? '#38a169' : isWarning ? '#d69e2e' : '#e53e3e',
               marginBottom: '1rem'
-            }}>{originality.toFixed(1)}%</div>
-            <div style={{ fontSize: '1.5rem', color: '#718096', marginBottom: '1rem' }}>
+            }}>
+              {originality.toFixed(1)}%
+            </div>
+            <div style={{
+              fontSize: '1.5rem',
+              color: '#718096',
+              marginBottom: '1rem'
+            }}>
               {isGood && '✅ Отличная оригинальность'}
               {isWarning && '⚠️ Средняя оригинальность'}
-              {!isGood && !isWarning && '❌ Низкая оригинальность'}
+              {isBad && '❌ Обнаружен плагиат'}
             </div>
-            {result.ai_powered && (
+            {report.ai_powered && (
               <div style={{
-                display: 'inline-block', padding: '0.5rem 1rem',
-                background: '#805ad5', color: 'white', borderRadius: '8px', fontSize: '0.875rem'
-              }}>🤖 AI-анализ с Google Gemini 2.0</div>
+                display: 'inline-block',
+                padding: '0.5rem 1rem',
+                background: '#805ad5',
+                color: 'white',
+                borderRadius: '8px',
+                fontSize: '0.875rem',
+                fontWeight: '600'
+              }}>
+                🤖 Google Search проверка
+              </div>
+            )}
+            {report.note && (
+              <div style={{
+                marginTop: '1rem',
+                padding: '0.75rem',
+                background: '#fef5e7',
+                color: '#744210',
+                borderRadius: '8px',
+                fontSize: '0.875rem'
+              }}>
+                💡 {report.note}
+              </div>
             )}
           </div>
 
+          {/* Stats Grid */}
           <div style={{
-            display: 'grid', gridTemplateColumns: 'repeat(auto-fit, minmax(200px, 1fr))',
-            gap: '1.5rem', marginBottom: '3rem'
+            display: 'grid',
+            gridTemplateColumns: 'repeat(auto-fit, minmax(200px, 1fr))',
+            gap: '1.5rem',
+            marginBottom: '3rem'
           }}>
             <div style={{ padding: '1.5rem', background: '#f7fafc', borderRadius: '12px', textAlign: 'center' }}>
               <div style={{ fontSize: '2rem', marginBottom: '0.5rem' }}>📝</div>
               <div style={{ fontSize: '1.5rem', fontWeight: '700', marginBottom: '0.25rem' }}>
-                {result.total_words?.toLocaleString()}
+                {report.total_words?.toLocaleString()}
               </div>
               <div style={{ color: '#718096', fontSize: '0.875rem' }}>Слов</div>
             </div>
             <div style={{ padding: '1.5rem', background: '#f7fafc', borderRadius: '12px', textAlign: 'center' }}>
               <div style={{ fontSize: '2rem', marginBottom: '0.5rem' }}>🔤</div>
               <div style={{ fontSize: '1.5rem', fontWeight: '700', marginBottom: '0.25rem' }}>
-                {result.total_chars?.toLocaleString()}
+                {report.total_chars?.toLocaleString()}
               </div>
               <div style={{ color: '#718096', fontSize: '0.875rem' }}>Символов</div>
             </div>
             <div style={{ padding: '1.5rem', background: '#f7fafc', borderRadius: '12px', textAlign: 'center' }}>
               <div style={{ fontSize: '2rem', marginBottom: '0.5rem' }}>🎯</div>
               <div style={{ fontSize: '1.5rem', fontWeight: '700', marginBottom: '0.25rem' }}>
-                {result.matches?.length || 0}
+                {report.matches?.length || 0}
               </div>
               <div style={{ color: '#718096', fontSize: '0.875rem' }}>Совпадений</div>
             </div>
           </div>
 
-          {result.matches && result.matches.length > 0 && (
-            <div>
+          {/* Matches */}
+          {report.matches && report.matches.length > 0 && (
+            <div style={{ marginBottom: '3rem' }}>
               <h2 style={{ fontSize: '1.5rem', fontWeight: '700', marginBottom: '1.5rem' }}>
                 Найденные совпадения
               </h2>
               <div style={{ display: 'flex', flexDirection: 'column', gap: '1rem' }}>
-                {result.matches.map((match, i) => (
+                {report.matches.map((match, i) => (
                   <div key={i} style={{
-                    padding: '1.5rem', background: '#fef5e7', border: '2px solid #f6ad55', borderRadius: '12px'
+                    padding: '1.5rem',
+                    background: '#fef5e7',
+                    border: '2px solid #f6ad55',
+                    borderRadius: '12px'
                   }}>
-                    <div style={{ display: 'flex', justifyContent: 'space-between', marginBottom: '0.75rem' }}>
-                      <span style={{ fontWeight: '600', color: '#744210' }}>Совпадение #{i + 1}</span>
+                    <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', marginBottom: '0.75rem' }}>
+                      <span style={{ fontWeight: '600', color: '#744210' }}>
+                        Совпадение #{i + 1}
+                      </span>
                       <span style={{
-                        padding: '0.25rem 0.75rem', background: '#f6ad55', color: 'white',
-                        borderRadius: '6px', fontSize: '0.875rem', fontWeight: '600'
-                      }}>{(match.similarity * 100).toFixed(0)}% схожесть</span>
+                        padding: '0.25rem 0.75rem',
+                        background: '#f6ad55',
+                        color: 'white',
+                        borderRadius: '6px',
+                        fontSize: '0.875rem',
+                        fontWeight: '600'
+                      }}>
+                        {(match.similarity * 100).toFixed(0)}% схожесть
+                      </span>
                     </div>
                     <div style={{
-                      padding: '1rem', background: 'white', borderRadius: '8px',
-                      fontStyle: 'italic', color: '#2d3748'
-                    }}>"{match.text}"</div>
+                      padding: '1rem',
+                      background: 'white',
+                      borderRadius: '8px',
+                      fontStyle: 'italic',
+                      color: '#2d3748',
+                      marginBottom: '0.5rem',
+                      maxHeight: '150px',
+                      overflow: 'auto'
+                    }}>
+                      "{match.text}"
+                    </div>
+                    <div style={{ fontSize: '0.875rem', color: '#718096' }}>
+                      Тип: {match.type === 'google_exact' ? '🌐 Google Search' : '📖 Лексическое'}
+                    </div>
                   </div>
                 ))}
               </div>
             </div>
           )}
 
-          {result.sources && result.sources.length > 0 && (
-            <div style={{ marginTop: '3rem' }}>
+          {/* Sources */}
+          {report.sources && report.sources.length > 0 && (
+            <div>
               <h2 style={{ fontSize: '1.5rem', fontWeight: '700', marginBottom: '1.5rem' }}>
-                Источники ({result.sources.length})
+                Источники ({report.sources.length})
               </h2>
               <div style={{ display: 'flex', flexDirection: 'column', gap: '1rem' }}>
-                {result.sources.map((source, i) => (
+                {report.sources.map((source, i) => (
                   <div key={i} style={{
-                    padding: '1.5rem', background: '#f7fafc', borderRadius: '12px',
-                    display: 'flex', justifyContent: 'space-between', alignItems: 'center'
+                    padding: '1.5rem',
+                    background: '#f7fafc',
+                    borderRadius: '12px',
+                    display: 'flex',
+                    justifyContent: 'space-between',
+                    alignItems: 'center'
                   }}>
-                    <div>
-                      <div style={{ fontWeight: '600', marginBottom: '0.25rem' }}>{source.title}</div>
-                      <a href={source.url} target="_blank" rel="noopener noreferrer"
-                        style={{ color: '#3182ce', fontSize: '0.875rem', textDecoration: 'none' }}>
+                    <div style={{ flex: 1 }}>
+                      <div style={{ fontWeight: '600', marginBottom: '0.25rem', fontSize: '1rem' }}>
+                        {source.title}
+                      </div>
+                      <a
+                        href={source.url}
+                        target="_blank"
+                        rel="noopener noreferrer"
+                        style={{
+                          color: '#3182ce',
+                          fontSize: '0.875rem',
+                          textDecoration: 'none'
+                        }}
+                      >
                         {source.domain} ↗
                       </a>
                     </div>
-                    <div style={{ textAlign: 'right' }}>
-                      <div style={{ fontSize: '1.25rem', fontWeight: '700', color: '#3182ce' }}>
+                    <div style={{ textAlign: 'right', marginLeft: '1rem' }}>
+                      <div style={{ fontSize: '1.5rem', fontWeight: '700', color: '#3182ce' }}>
                         {source.match_count}
                       </div>
-                      <div style={{ fontSize: '0.75rem', color: '#718096' }}>совпадений</div>
+                      <div style={{ fontSize: '0.75rem', color: '#718096' }}>
+                        совпадений
+                      </div>
                     </div>
                   </div>
                 ))}
@@ -209,26 +348,64 @@ export default function ReportPage() {
           )}
         </div>
 
+        {/* Actions */}
         <div style={{ display: 'flex', gap: '1rem', justifyContent: 'center', flexWrap: 'wrap' }}>
-          <button onClick={() => router.push('/')} style={{
-            padding: '1rem 2rem', background: '#3182ce', color: 'white',
-            border: 'none', borderRadius: '8px', fontSize: '1rem',
-            fontWeight: '600', cursor: 'pointer'
-          }}>Проверить другой текст</button>
-          
-          <button onClick={shareLink} style={{
-            padding: '1rem 2rem', background: '#48bb78', color: 'white',
-            border: 'none', borderRadius: '8px', fontSize: '1rem',
-            fontWeight: '600', cursor: 'pointer'
-          }}>🔗 Поделиться ссылкой</button>
-          
-          <button onClick={() => window.print()} style={{
-            padding: '1rem 2rem', background: 'white', color: '#3182ce',
-            border: '2px solid #3182ce', borderRadius: '8px', fontSize: '1rem',
-            fontWeight: '600', cursor: 'pointer'
-          }}>📄 Распечатать отчет</button>
+          <button
+            onClick={() => router.push('/')}
+            style={{
+              padding: '1rem 2rem',
+              background: '#3182ce',
+              color: 'white',
+              border: 'none',
+              borderRadius: '8px',
+              fontSize: '1rem',
+              fontWeight: '600',
+              cursor: 'pointer'
+            }}
+          >
+            Проверить другой текст
+          </button>
+
+          <button
+            onClick={shareLink}
+            style={{
+              padding: '1rem 2rem',
+              background: '#48bb78',
+              color: 'white',
+              border: 'none',
+              borderRadius: '8px',
+              fontSize: '1rem',
+              fontWeight: '600',
+              cursor: 'pointer'
+            }}
+          >
+            🔗 Поделиться ссылкой
+          </button>
+
+          <button
+            onClick={() => window.print()}
+            style={{
+              padding: '1rem 2rem',
+              background: 'white',
+              color: '#3182ce',
+              border: '2px solid #3182ce',
+              borderRadius: '8px',
+              fontSize: '1rem',
+              fontWeight: '600',
+              cursor: 'pointer'
+            }}
+          >
+            📄 Распечатать
+          </button>
         </div>
       </div>
+
+      <style jsx>{`
+        @keyframes slideIn {
+          from { transform: translateX(100%); opacity: 0; }
+          to { transform: translateX(0); opacity: 1; }
+        }
+      `}</style>
     </div>
   )
 }
