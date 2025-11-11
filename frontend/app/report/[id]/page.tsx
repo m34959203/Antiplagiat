@@ -1,411 +1,191 @@
 'use client'
 
 import { useEffect, useState } from 'react'
-import { useParams, useRouter } from 'next/navigation'
+import { useParams } from 'next/navigation'
 
-interface Match {
-  start: number
-  end: number
-  text: string
-  source_id: number
-  similarity: number
-  type: string
-}
-
-interface Source {
-  id: number
-  title: string
-  url: string
-  domain: string
-  match_count: number
-}
-
-interface ReportData {
+interface CheckResult {
   task_id: string
   status: string
   originality: number
   total_words: number
   total_chars: number
-  matches: Match[]
-  sources: Source[]
-  created_at: string
+  matches: Array<{
+    start: number
+    end: number
+    text: string
+    source_id: number
+    similarity: number
+    type: string
+  }>
+  sources: Array<{
+    id: number
+    title: string
+    url: string
+    domain: string
+    match_count: number
+  }>
   ai_powered: boolean
-  note?: string
+  created_at: string
 }
 
 export default function ReportPage() {
   const params = useParams()
-  const router = useRouter()
-  const [report, setReport] = useState<ReportData | null>(null)
+  const taskId = params.id as string
+  
+  const [result, setResult] = useState<CheckResult | null>(null)
   const [loading, setLoading] = useState(true)
   const [error, setError] = useState<string | null>(null)
-  const [copied, setCopied] = useState(false)
 
   useEffect(() => {
-    const fetchReport = async () => {
+    const fetchResult = async () => {
       try {
-        const API_URL = process.env.NEXT_PUBLIC_API_URL || 'https://antiplagiat-api.onrender.com'
-        const response = await fetch(`${API_URL}/api/v1/check/${params.id}`)
+        const apiUrl = process.env.NEXT_PUBLIC_API_URL || 'http://localhost:8000'
+        const response = await fetch(`${apiUrl}/api/v1/check/${taskId}`)
         
         if (!response.ok) {
-          throw new Error('Отчет не найден')
+          throw new Error(`HTTP ${response.status}`)
         }
         
         const data = await response.json()
-        setReport(data)
-      } catch (err: any) {
-        setError(err.message)
+        setResult(data)
+      } catch (err) {
+        setError(err instanceof Error ? err.message : 'Unknown error')
       } finally {
         setLoading(false)
       }
     }
 
-    fetchReport()
-  }, [params.id])
-
-  const shareLink = () => {
-    const url = window.location.href
-    navigator.clipboard.writeText(url)
-    setCopied(true)
-    setTimeout(() => setCopied(false), 2000)
-  }
+    if (taskId) {
+      fetchResult()
+    }
+  }, [taskId])
 
   if (loading) {
     return (
-      <div style={{ minHeight: '100vh', display: 'flex', alignItems: 'center', justifyContent: 'center', background: 'linear-gradient(to bottom, #ffffff, #f7fafc)' }}>
-        <div style={{ textAlign: 'center' }}>
-          <div style={{ fontSize: '4rem', marginBottom: '1rem' }}>⏳</div>
-          <div style={{ fontSize: '1.5rem', color: '#718096' }}>Загрузка результатов...</div>
+      <div className="min-h-screen flex items-center justify-center">
+        <div className="text-center">
+          <div className="animate-spin rounded-full h-16 w-16 border-b-2 border-blue-600 mx-auto mb-4"></div>
+          <p className="text-gray-600">Загрузка результатов...</p>
         </div>
       </div>
     )
   }
 
-  if (error || !report) {
+  if (error || !result) {
     return (
-      <div style={{ minHeight: '100vh', display: 'flex', alignItems: 'center', justifyContent: 'center', background: 'linear-gradient(to bottom, #ffffff, #f7fafc)' }}>
-        <div style={{ textAlign: 'center' }}>
-          <div style={{ fontSize: '4rem', marginBottom: '1rem' }}>❌</div>
-          <div style={{ fontSize: '1.5rem', color: '#e53e3e', marginBottom: '1rem' }}>
-            {error || 'Отчет не найден'}
-          </div>
-          <button
-            onClick={() => router.push('/')}
-            style={{
-              padding: '0.75rem 1.5rem',
-              background: '#3182ce',
-              color: 'white',
-              border: 'none',
-              borderRadius: '8px',
-              cursor: 'pointer',
-              fontSize: '1rem',
-              fontWeight: '600'
-            }}
-          >
-            Вернуться на главную
-          </button>
+      <div className="min-h-screen flex items-center justify-center">
+        <div className="bg-red-50 border border-red-200 rounded-lg p-6 max-w-md">
+          <h2 className="text-red-800 text-xl font-bold mb-2">Ошибка</h2>
+          <p className="text-red-600">{error || 'Результат не найден'}</p>
+          <a href="/" className="mt-4 inline-block text-blue-600 hover:underline">
+            ← Вернуться на главную
+          </a>
         </div>
       </div>
     )
   }
 
-  const originality = report.originality || 0
-  const isGood = originality >= 80
-  const isWarning = originality >= 50 && originality < 80
-  const isBad = originality < 50
+  const getOriginalityColor = (score: number) => {
+    if (score >= 80) return 'text-green-600'
+    if (score >= 60) return 'text-yellow-600'
+    return 'text-red-600'
+  }
 
   return (
-    <div style={{ minHeight: '100vh', background: 'linear-gradient(to bottom, #ffffff, #f7fafc)' }}>
-      {/* Toast */}
-      {copied && (
-        <div style={{
-          position: 'fixed',
-          top: '2rem',
-          right: '2rem',
-          zIndex: 1000,
-          background: '#48bb78',
-          color: 'white',
-          padding: '1rem 1.5rem',
-          borderRadius: '8px',
-          boxShadow: '0 10px 40px rgba(0,0,0,0.2)',
-          animation: 'slideIn 0.3s ease-out'
-        }}>
-          ✓ Ссылка скопирована!
-        </div>
-      )}
-
-      {/* Header */}
-      <header style={{
-        background: 'rgba(255, 255, 255, 0.95)',
-        backdropFilter: 'blur(10px)',
-        borderBottom: '1px solid #e2e8f0',
-        padding: '1rem 2rem',
-        position: 'sticky',
-        top: 0,
-        zIndex: 100
-      }}>
-        <div style={{ maxWidth: '1200px', margin: '0 auto', display: 'flex', alignItems: 'center', gap: '1rem' }}>
-          <button
-            onClick={() => router.push('/')}
-            style={{
-              padding: '0.5rem 1rem',
-              background: 'transparent',
-              border: '2px solid #e2e8f0',
-              borderRadius: '8px',
-              cursor: 'pointer',
-              fontSize: '1rem'
-            }}
-          >
-            ← Назад
-          </button>
-          <div style={{ display: 'flex', alignItems: 'center', gap: '0.5rem' }}>
-            <span style={{ fontSize: '1.5rem' }}>🔍</span>
-            <span style={{ fontSize: '1.25rem', fontWeight: 'bold' }}>Antiplagiat</span>
-          </div>
-        </div>
-      </header>
-
-      {/* Content */}
-      <div style={{ maxWidth: '1200px', margin: '0 auto', padding: '3rem 2rem' }}>
-        <div style={{
-          background: 'white',
-          borderRadius: '16px',
-          padding: '3rem',
-          boxShadow: '0 20px 60px rgba(0, 0, 0, 0.1)',
-          marginBottom: '2rem'
-        }}>
-          {/* Main Score */}
-          <div style={{ textAlign: 'center', marginBottom: '3rem' }}>
-            <div style={{
-              fontSize: '6rem',
-              fontWeight: '800',
-              color: isGood ? '#38a169' : isWarning ? '#d69e2e' : '#e53e3e',
-              marginBottom: '1rem'
-            }}>
-              {originality.toFixed(1)}%
-            </div>
-            <div style={{
-              fontSize: '1.5rem',
-              color: '#718096',
-              marginBottom: '1rem'
-            }}>
-              {isGood && '✅ Отличная оригинальность'}
-              {isWarning && '⚠️ Средняя оригинальность'}
-              {isBad && '❌ Обнаружен плагиат'}
-            </div>
-            {report.ai_powered && (
-              <div style={{
-                display: 'inline-block',
-                padding: '0.5rem 1rem',
-                background: '#805ad5',
-                color: 'white',
-                borderRadius: '8px',
-                fontSize: '0.875rem',
-                fontWeight: '600'
-              }}>
-                🤖 Google Search проверка
-              </div>
-            )}
-            {report.note && (
-              <div style={{
-                marginTop: '1rem',
-                padding: '0.75rem',
-                background: '#fef5e7',
-                color: '#744210',
-                borderRadius: '8px',
-                fontSize: '0.875rem'
-              }}>
-                💡 {report.note}
-              </div>
-            )}
+    <div className="min-h-screen bg-gray-50 py-8 px-4">
+      <div className="max-w-4xl mx-auto">
+        {/* Header */}
+        <div className="bg-white rounded-lg shadow-lg p-8 mb-6">
+          <div className="text-center">
+            <h1 className="text-4xl font-bold mb-2">Результат проверки</h1>
+            <p className="text-gray-500 text-sm">ID: {result.task_id}</p>
           </div>
 
-          {/* Stats Grid */}
-          <div style={{
-            display: 'grid',
-            gridTemplateColumns: 'repeat(auto-fit, minmax(200px, 1fr))',
-            gap: '1.5rem',
-            marginBottom: '3rem'
-          }}>
-            <div style={{ padding: '1.5rem', background: '#f7fafc', borderRadius: '12px', textAlign: 'center' }}>
-              <div style={{ fontSize: '2rem', marginBottom: '0.5rem' }}>📝</div>
-              <div style={{ fontSize: '1.5rem', fontWeight: '700', marginBottom: '0.25rem' }}>
-                {report.total_words?.toLocaleString()}
-              </div>
-              <div style={{ color: '#718096', fontSize: '0.875rem' }}>Слов</div>
+          {/* Originality Score */}
+          <div className="mt-8 text-center">
+            <div className={`text-7xl font-bold ${getOriginalityColor(result.originality)}`}>
+              {result.originality.toFixed(1)}%
             </div>
-            <div style={{ padding: '1.5rem', background: '#f7fafc', borderRadius: '12px', textAlign: 'center' }}>
-              <div style={{ fontSize: '2rem', marginBottom: '0.5rem' }}>🔤</div>
-              <div style={{ fontSize: '1.5rem', fontWeight: '700', marginBottom: '0.25rem' }}>
-                {report.total_chars?.toLocaleString()}
-              </div>
-              <div style={{ color: '#718096', fontSize: '0.875rem' }}>Символов</div>
+            <p className="text-gray-600 mt-2">Оригинальность</p>
+          </div>
+
+          {/* Stats */}
+          <div className="grid grid-cols-3 gap-4 mt-8">
+            <div className="text-center p-4 bg-gray-50 rounded">
+              <div className="text-2xl font-bold text-gray-800">{result.total_words}</div>
+              <div className="text-gray-600 text-sm">Слов</div>
             </div>
-            <div style={{ padding: '1.5rem', background: '#f7fafc', borderRadius: '12px', textAlign: 'center' }}>
-              <div style={{ fontSize: '2rem', marginBottom: '0.5rem' }}>🎯</div>
-              <div style={{ fontSize: '1.5rem', fontWeight: '700', marginBottom: '0.25rem' }}>
-                {report.matches?.length || 0}
-              </div>
-              <div style={{ color: '#718096', fontSize: '0.875rem' }}>Совпадений</div>
+            <div className="text-center p-4 bg-gray-50 rounded">
+              <div className="text-2xl font-bold text-gray-800">{result.total_chars}</div>
+              <div className="text-gray-600 text-sm">Символов</div>
+            </div>
+            <div className="text-center p-4 bg-gray-50 rounded">
+              <div className="text-2xl font-bold text-gray-800">{result.matches?.length || 0}</div>
+              <div className="text-gray-600 text-sm">Совпадений</div>
             </div>
           </div>
 
-          {/* Matches */}
-          {report.matches && report.matches.length > 0 && (
-            <div style={{ marginBottom: '3rem' }}>
-              <h2 style={{ fontSize: '1.5rem', fontWeight: '700', marginBottom: '1.5rem' }}>
-                Найденные совпадения
-              </h2>
-              <div style={{ display: 'flex', flexDirection: 'column', gap: '1rem' }}>
-                {report.matches.map((match, i) => (
-                  <div key={i} style={{
-                    padding: '1.5rem',
-                    background: '#fef5e7',
-                    border: '2px solid #f6ad55',
-                    borderRadius: '12px'
-                  }}>
-                    <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', marginBottom: '0.75rem' }}>
-                      <span style={{ fontWeight: '600', color: '#744210' }}>
-                        Совпадение #{i + 1}
-                      </span>
-                      <span style={{
-                        padding: '0.25rem 0.75rem',
-                        background: '#f6ad55',
-                        color: 'white',
-                        borderRadius: '6px',
-                        fontSize: '0.875rem',
-                        fontWeight: '600'
-                      }}>
-                        {(match.similarity * 100).toFixed(0)}% схожесть
-                      </span>
-                    </div>
-                    <div style={{
-                      padding: '1rem',
-                      background: 'white',
-                      borderRadius: '8px',
-                      fontStyle: 'italic',
-                      color: '#2d3748',
-                      marginBottom: '0.5rem',
-                      maxHeight: '150px',
-                      overflow: 'auto'
-                    }}>
-                      "{match.text}"
-                    </div>
-                    <div style={{ fontSize: '0.875rem', color: '#718096' }}>
-                      Тип: {match.type === 'google_exact' ? '🌐 Google Search' : '📖 Лексическое'}
-                    </div>
-                  </div>
-                ))}
-              </div>
-            </div>
-          )}
-
-          {/* Sources */}
-          {report.sources && report.sources.length > 0 && (
-            <div>
-              <h2 style={{ fontSize: '1.5rem', fontWeight: '700', marginBottom: '1.5rem' }}>
-                Источники ({report.sources.length})
-              </h2>
-              <div style={{ display: 'flex', flexDirection: 'column', gap: '1rem' }}>
-                {report.sources.map((source, i) => (
-                  <div key={i} style={{
-                    padding: '1.5rem',
-                    background: '#f7fafc',
-                    borderRadius: '12px',
-                    display: 'flex',
-                    justifyContent: 'space-between',
-                    alignItems: 'center'
-                  }}>
-                    <div style={{ flex: 1 }}>
-                      <div style={{ fontWeight: '600', marginBottom: '0.25rem', fontSize: '1rem' }}>
-                        {source.title}
-                      </div>
-                      <a
-                        href={source.url}
-                        target="_blank"
-                        rel="noopener noreferrer"
-                        style={{
-                          color: '#3182ce',
-                          fontSize: '0.875rem',
-                          textDecoration: 'none'
-                        }}
-                      >
-                        {source.domain} ↗
-                      </a>
-                    </div>
-                    <div style={{ textAlign: 'right', marginLeft: '1rem' }}>
-                      <div style={{ fontSize: '1.5rem', fontWeight: '700', color: '#3182ce' }}>
-                        {source.match_count}
-                      </div>
-                      <div style={{ fontSize: '0.75rem', color: '#718096' }}>
-                        совпадений
-                      </div>
-                    </div>
-                  </div>
-                ))}
-              </div>
+          {result.ai_powered && (
+            <div className="mt-4 text-center text-sm text-blue-600">
+              🤖 Проверено с помощью AI
             </div>
           )}
         </div>
+
+        {/* Matches */}
+        {result.matches && result.matches.length > 0 && (
+          <div className="bg-white rounded-lg shadow-lg p-8 mb-6">
+            <h2 className="text-2xl font-bold mb-4">Найденные совпадения</h2>
+            <div className="space-y-4">
+              {result.matches.map((match, index) => (
+                <div key={index} className="border-l-4 border-red-400 pl-4 py-2">
+                  <p className="text-gray-800">{match.text}</p>
+                  <div className="flex gap-4 mt-2 text-sm text-gray-600">
+                    <span>Сходство: {(match.similarity * 100).toFixed(0)}%</span>
+                    <span>Тип: {match.type}</span>
+                  </div>
+                </div>
+              ))}
+            </div>
+          </div>
+        )}
+
+        {/* Sources */}
+        {result.sources && result.sources.length > 0 && (
+          <div className="bg-white rounded-lg shadow-lg p-8">
+            <h2 className="text-2xl font-bold mb-4">Источники</h2>
+            <div className="space-y-3">
+              {result.sources.map((source) => (
+                <div key={source.id} className="border-b pb-3 last:border-b-0">
+                  <a 
+                    href={source.url} 
+                    target="_blank" 
+                    rel="noopener noreferrer"
+                    className="text-blue-600 hover:underline font-medium"
+                  >
+                    {source.title}
+                  </a>
+                  <div className="text-sm text-gray-600 mt-1">
+                    <span>{source.domain}</span>
+                    <span className="mx-2">•</span>
+                    <span>Совпадений: {source.match_count}</span>
+                  </div>
+                </div>
+              ))}
+            </div>
+          </div>
+        )}
 
         {/* Actions */}
-        <div style={{ display: 'flex', gap: '1rem', justifyContent: 'center', flexWrap: 'wrap' }}>
-          <button
-            onClick={() => router.push('/')}
-            style={{
-              padding: '1rem 2rem',
-              background: '#3182ce',
-              color: 'white',
-              border: 'none',
-              borderRadius: '8px',
-              fontSize: '1rem',
-              fontWeight: '600',
-              cursor: 'pointer'
-            }}
+        <div className="mt-8 text-center">
+          <a 
+            href="/" 
+            className="inline-block bg-blue-600 text-white px-6 py-3 rounded-lg hover:bg-blue-700 transition"
           >
-            Проверить другой текст
-          </button>
-
-          <button
-            onClick={shareLink}
-            style={{
-              padding: '1rem 2rem',
-              background: '#48bb78',
-              color: 'white',
-              border: 'none',
-              borderRadius: '8px',
-              fontSize: '1rem',
-              fontWeight: '600',
-              cursor: 'pointer'
-            }}
-          >
-            🔗 Поделиться ссылкой
-          </button>
-
-          <button
-            onClick={() => window.print()}
-            style={{
-              padding: '1rem 2rem',
-              background: 'white',
-              color: '#3182ce',
-              border: '2px solid #3182ce',
-              borderRadius: '8px',
-              fontSize: '1rem',
-              fontWeight: '600',
-              cursor: 'pointer'
-            }}
-          >
-            📄 Распечатать
-          </button>
+            ← Новая проверка
+          </a>
         </div>
       </div>
-
-      <style jsx>{`
-        @keyframes slideIn {
-          from { transform: translateX(100%); opacity: 0; }
-          to { transform: translateX(0); opacity: 1; }
-        }
-      `}</style>
     </div>
   )
 }
